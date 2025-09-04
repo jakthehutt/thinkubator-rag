@@ -1,12 +1,36 @@
-# gitignore template for LangChain products, e.g., LangGraph, LangSmith
-# website: https://www.langchain.com/
-# website: https://www.langchain.com/langgraph
-
-# LangGraph
-.langgraph_api/
-
-# Localfiles
-data/pdfs/
-
+# Environment variables (contains sensitive API keys)
 .env
+
+# Python
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-wheel-metadata/
+.installed.cfg
+*.egg-info/
+*.egg
+dist/
+build/
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ChromaDB
+chroma_db/
+data/processed/chroma_db/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# macOS
+.DS_Store
+
+# Logs
+*.log

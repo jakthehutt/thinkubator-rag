@@ -27,24 +27,44 @@ def main():
 
     st.title("Thinkubator RAG Pipeline Explorer")
 
-    # --- API Key Input in Sidebar ---
+    # --- API Key Configuration ---
     st.sidebar.header("Configuration")
-    api_key_input = st.sidebar.text_input(
-        "Enter your Gemini API Key", 
-        type="password",
-        help="Get your key from Google AI Studio. The app will use this key to initialize the pipeline."
-    )
+    
+    # Check if API key exists in environment (from .env file)
+    env_api_key = os.environ.get("GEMINI_API_KEY")
+    
+    if env_api_key:
+        st.sidebar.success("✅ API Key loaded from .env file")
+        api_key_to_use = env_api_key
+        # Show option to override with manual input
+        manual_override = st.sidebar.checkbox("Override with manual API key")
+        if manual_override:
+            api_key_input = st.sidebar.text_input(
+                "Enter your Gemini API Key", 
+                type="password",
+                help="This will override the key from .env file"
+            )
+            if api_key_input:
+                api_key_to_use = api_key_input
+    else:
+        st.sidebar.warning("⚠️ No API key found in .env file")
+        api_key_input = st.sidebar.text_input(
+            "Enter your Gemini API Key", 
+            type="password",
+            help="Get your key from Google AI Studio. The app will use this key to initialize the pipeline."
+        )
+        api_key_to_use = api_key_input
 
     # --- Pipeline Initialization ---
     # The pipeline is now initialized only after a key is provided.
-    if api_key_input:
-        if 'rag_pipeline' not in st.session_state or st.session_state.api_key != api_key_input:
+    if api_key_to_use:
+        if 'rag_pipeline' not in st.session_state or st.session_state.get('api_key') != api_key_to_use:
             with st.spinner("Initializing RAG Pipeline with new API Key..."):
                 try:
                     # Pass the key directly to the pipeline
-                    pipeline = RAGPipeline(api_key=api_key_input)
+                    pipeline = RAGPipeline(api_key=api_key_to_use)
                     st.session_state.rag_pipeline = pipeline
-                    st.session_state.api_key = api_key_input # Store the key to detect changes
+                    st.session_state.api_key = api_key_to_use # Store the key to detect changes
                     st.sidebar.success("Pipeline Initialized!")
                 except Exception as e:
                     st.error(f"Error initializing RAG Pipeline: {e}")

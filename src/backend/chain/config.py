@@ -19,7 +19,7 @@ DOCUMENT_SUMMARY_PROMPT_PATH = os.path.join(PROMPT_DIR, "document_summary_prompt
 GENERATION_SYSTEM_PROMPT_PATH = os.path.join(PROMPT_DIR, "generation_system_prompt.txt")
 
 # --- Gemini Models ---
-GEMINI_GENERATIVE_MODEL = "gemini-pro"
+GEMINI_GENERATIVE_MODEL = "gemini-1.5-flash"  # Updated to current model
 GEMINI_EMBEDDING_MODEL = "models/embedding-001"
 
 # --- Other Config ---
