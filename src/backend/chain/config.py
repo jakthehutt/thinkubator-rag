@@ -1,9 +1,8 @@
 import os
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 import logging
 
-# Load environment variables from .env file
-load_dotenv()
+# load_dotenv() # This will be handled by the application entry points
 
 # --- Paths ---
 # BASE_DIR should be the project root

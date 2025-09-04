@@ -1,15 +1,29 @@
 import os
-# import sys # Removed, relying on proper package installation and environment setup
+import sys
+from dotenv import load_dotenv
 import logging
 # from dotenv import load_dotenv # Removed, as config.py handles this
+
+# --- Robustly find and load the .env file ---
+# This script is in src/backend/ingest_documents.py
+# The project root is two levels up from this script's directory.
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+dotenv_path = os.path.join(project_root, '.env')
+
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path=dotenv_path)
+else:
+    logging.warning(f".env file not found at {dotenv_path}. The script might fail if GEMINI_API_KEY is not set.")
+
+# Adjust the path to import RAGPipeline correctly
+# Add the project root to the path, so 'from src...' works.
+sys.path.insert(0, project_root)
 
 # Configure logging for the ingestion script
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Load environment variables from .env file # Removed, as config.py handles this
-# load_dotenv()
-
-# Adjust the path to import RAGPipeline correctly
+# Add the project root to the Python path
+# This is necessary for the script to find the backend modules
 # Get the directory of the current script: /path/to/project_root/src/backend
 # script_dir = os.path.dirname(os.path.abspath(__file__)) # Removed
 # Go up two levels to reach the project root: /path/to/project_root

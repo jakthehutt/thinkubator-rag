@@ -1,12 +1,22 @@
 import streamlit as st
 import os
 import sys
+from dotenv import load_dotenv
+
+# --- Robustly find and load the .env file ---
+# This script is in src/frontend/app.py
+# The project root is two levels up from this script's directory.
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+dotenv_path = os.path.join(project_root, '.env')
+
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path=dotenv_path)
+else:
+    # This will be visible in the Streamlit UI if the .env file is missing
+    print(f"Warning: .env file not found at {dotenv_path}")
 
 # Adjust the path to import RAGPipeline correctly
-# Get the directory of the current script: /path/to/project_root/src/frontend
-script_dir = os.path.dirname(os.path.abspath(__file__))
-# Go up two levels to reach the project root: /path/to/project_root
-project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
+# Add the project root to the path, so 'from src...' works.
 sys.path.insert(0, project_root)
 
 from src.backend.chain.rag_pipeline import RAGPipeline
