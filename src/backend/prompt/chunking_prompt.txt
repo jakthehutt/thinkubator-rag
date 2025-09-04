@@ -1,8 +1,23 @@
-OCR the file into Markdown , inherting Markdown structure.
+OCR the file into Markdown, inheriting Markdown structure.
 Tables should be formatted as HTML.
-Chunk the document into sections of roughly 250 - 1000 words, by
-identify parts of the file with same semantic theme.
-These chunks will later be embedded and used in a RAG pipeline.
-Surround the chunks with $<chunk>$$</chunk>$tags.:
+
+IMPORTANT: Focus ONLY on main content. EXCLUDE the following sections:
+- Author lists and affiliations
+- References and bibliography
+- Acknowledgements
+- Table of contents
+- Abstract (unless it contains unique key information)
+- Appendices with raw data
+- Copyright and publication information
+
+Chunk the document into sections of roughly 250-1000 words by identifying parts with the same semantic theme. Focus on:
+- Main body text with key findings
+- Important conclusions and insights
+- Methodology explanations
+- Data analysis and results
+- Executive summaries with substantive content
+
+These chunks will be used in a RAG pipeline to answer user questions.
+Surround the chunks with <chunk></chunk> tags.
 
 {text}

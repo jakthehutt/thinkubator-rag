@@ -5,7 +5,10 @@ import chromadb
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import logging
 import re
-from typing import List
+from typing import List, Optional, Dict, Any
+
+from src.backend.chain.query_processor import QueryProcessorFactory, BaseQueryProcessor
+from src.backend.chain.reranker import RerankerFactory, BaseReranker
 
 from src.backend.chain.config import (
     CHROMA_DB_PATH,
@@ -36,13 +39,37 @@ class ChromaEmbeddingWrapper:
         return "google_generative_ai_embeddings"
 
 class RAGPipeline:
+    """
+    Modular RAG Pipeline with configurable query processing and reranking.
+    
+    Features:
+    - Configurable query processors (basic, enhanced, advanced)
+    - Configurable rerankers (none, hybrid)
+    - Comprehensive PDF ingestion and chunking
+    - ChromaDB vector storage with metadata
+    - Gemini-powered generation with numbered citations
+    
+    Usage:
+        # Default setup (basic processing, no reranking)
+        pipeline = RAGPipeline(api_key="your_key")
+        
+        # Enhanced processing with hybrid reranking
+        pipeline = RAGPipeline(
+            api_key="your_key",
+            query_processor_version="enhanced",
+            reranker_version="hybrid"
+        )
+    """
+    
     def __init__(self,
                  api_key: str = None,
                  chroma_path: str = CHROMA_DB_PATH,
                  chunking_prompt_path: str = CHUNKING_PROMPT_PATH,
                  chunk_summary_prompt_path: str = CHUNK_SUMMARY_PROMPT_PATH,
                  document_summary_prompt_path: str = DOCUMENT_SUMMARY_PROMPT_PATH,
-                 generation_system_prompt_path: str = GENERATION_SYSTEM_PROMPT_PATH):
+                 generation_system_prompt_path: str = GENERATION_SYSTEM_PROMPT_PATH,
+                 query_processor_version: str = "basic",
+                 reranker_version: str = "none"):
         
         # --- Configure the Gemini API at runtime ---
         # Priority:
@@ -77,6 +104,39 @@ class RAGPipeline:
         self.chunk_summary_prompt = self._load_prompt(chunk_summary_prompt_path)
         self.document_summary_prompt = self._load_prompt(document_summary_prompt_path)
         self.generation_system_prompt = self._load_prompt(generation_system_prompt_path)
+        
+        # --- Initialize Query Processor and Reranker ---
+        try:
+            self.query_processor = QueryProcessorFactory.create_processor(
+                query_processor_version, 
+                api_key=effective_api_key
+            )
+            self.reranker = RerankerFactory.create_reranker(reranker_version)
+            
+            logging.info(f"Initialized with {self.query_processor.get_version_info()['version']} query processor")
+            logging.info(f"Initialized with {self.reranker.get_version_info()['version']} reranker")
+            
+        except Exception as e:
+            logging.error(f"Error initializing query processor or reranker: {e}")
+            # Fallback to basic versions
+            self.query_processor = QueryProcessorFactory.create_processor("basic")
+            self.reranker = RerankerFactory.create_reranker("none")
+            logging.warning("Falling back to basic query processor and no reranker")
+
+    def get_pipeline_info(self) -> Dict[str, Any]:
+        """
+        Get information about the current pipeline configuration.
+        
+        Returns:
+            Dict: Pipeline configuration and component information
+        """
+        return {
+            "query_processor": self.query_processor.get_version_info(),
+            "reranker": self.reranker.get_version_info(),
+            "embedding_model": GEMINI_EMBEDDING_MODEL,
+            "generative_model": GEMINI_GENERATIVE_MODEL,
+            "chroma_collection": "rag_chunks"
+        }
 
     def _load_prompt(self, file_path: str) -> str:
         try:
@@ -122,7 +182,8 @@ class RAGPipeline:
             # Flatten general_metadata and ensure all values are ChromaDB compatible
             metadata = {
                 "document_name": str(document_name),
-                "page_in_document": int(page_in_document) if page_in_document is not None else 0,
+                "page_in_document": int(page_in_document),
+                "page_approximation": "true",  # Indicate page number is estimated
                 "summary_of_chunk": str(chunk_summary) if chunk_summary else "",
                 "summary_of_document": str(document_summary) if document_summary else "",
             }
@@ -188,18 +249,45 @@ class RAGPipeline:
             logging.error(f"Error summarizing document with Gemini: {e}")
             raise
 
-    def _get_page_number_for_chunk(self, chunk_text: str, page_texts_with_num: list[tuple[int, str]]) -> int | None:
-        """Heuristically determines the primary page number for a given chunk.
-        This is a simple heuristic and might not be accurate for chunks spanning multiple pages
-        or very short, common phrases.
+    def _get_page_number_for_chunk(self, chunk_text: str, page_texts_with_num: list[tuple[int, str]]) -> int:
         """
-        # Remove chunk tags before searching in page content
+        Determines the most likely page number for a given chunk using improved heuristics.
+        Returns the page number with a note that it's an approximation.
+        """
+        # Remove chunk tags and clean text
         cleaned_chunk_text = chunk_text.replace("<chunk>", "").replace("</chunk>", "").strip()
-
+        
+        # If chunk is very short, return first page as fallback
+        if len(cleaned_chunk_text) < 50:
+            return 1
+        
+        # Extract a meaningful sample from the beginning of the chunk for matching
+        # Use first 200 characters as they're most likely to be unique
+        chunk_sample = cleaned_chunk_text[:200].strip()
+        
+        best_match_page = 1
+        best_match_score = 0
+        
         for page_num, page_content in page_texts_with_num:
-            if cleaned_chunk_text in page_content.strip():
+            # Calculate overlap score
+            if chunk_sample in page_content:
+                # Direct match - highest score
                 return page_num
-        return None
+            
+            # Calculate word overlap for fuzzy matching
+            chunk_words = set(chunk_sample.lower().split())
+            page_words = set(page_content.lower().split())
+            
+            if chunk_words and page_words:
+                overlap = len(chunk_words.intersection(page_words))
+                overlap_ratio = overlap / len(chunk_words)
+                
+                if overlap_ratio > best_match_score:
+                    best_match_score = overlap_ratio
+                    best_match_page = page_num
+        
+        # Return best match (will be marked as approximation in metadata)
+        return best_match_page
 
     def _store_chunks_in_chroma(self, chunks_with_metadata: list[tuple[str, dict, str]]):
         documents = [item[0] for item in chunks_with_metadata]
@@ -231,38 +319,54 @@ class RAGPipeline:
             raise
 
     def _pre_query_transformation(self, query: str) -> str:
-        """Placeholder for pre-query transformation (e.g., query rewriting, expansion).
-        
-        Suggestions for advanced implementations:
-        - Use an LLM to rewrite the query for better retrieval.
-        - Expand the query with synonyms or related terms.
-        - Decompose complex queries into simpler sub-queries.
         """
-        return query
+        Apply query preprocessing using the configured processor.
+        
+        Args:
+            query (str): Raw user query
+            
+        Returns:
+            str: Processed query optimized for retrieval
+        """
+        try:
+            processed_query = self.query_processor.process_query(query)
+            logging.debug(f"Query preprocessing: '{query}' → '{processed_query}'")
+            return processed_query
+        except Exception as e:
+            logging.error(f"Error in query preprocessing: {e}")
+            # Fallback to original query
+            return query
 
     def _rerank_chunks(self, query: str, retrieved_results: dict) -> list[dict]:
-        """A simple reranking algorithm based on the distance from ChromaDB.
-        The results are already sorted by distance by ChromaDB, so this method primarily
-        formats the output and serves as a placeholder for more complex reranking.
-        
-        Suggestions for advanced implementations:
-        - Implement a more sophisticated reranking model (e.g., a cross-encoder).
-        - Use hybrid search results (keyword + vector) for reranking.
-        - Incorporate metadata (e.g., document importance, recency) into the reranking score.
         """
-        reranked_chunks = []
-        documents = retrieved_results.get('documents', [[]])[0]
-        metadatas = retrieved_results.get('metadatas', [[]])[0]
-        distances = retrieved_results.get('distances', [[]])[0]
-
-        for doc, meta, dist in zip(documents, metadatas, distances):
-            reranked_chunks.append({
-                "document": doc,
-                "metadata": meta,
-                "distance": dist
-            })
+        Apply reranking using the configured reranker.
         
-        return reranked_chunks
+        Args:
+            query (str): Original user query for relevance scoring
+            retrieved_results (dict): Raw results from ChromaDB
+            
+        Returns:
+            List[dict]: Reranked chunks with enhanced relevance scores
+        """
+        try:
+            reranked_chunks = self.reranker.rerank(query, retrieved_results)
+            logging.debug(f"Reranking applied: {len(reranked_chunks)} chunks processed")
+            return reranked_chunks
+        except Exception as e:
+            logging.error(f"Error in reranking: {e}")
+            # Fallback to simple formatting
+            fallback_chunks = []
+            documents = retrieved_results.get('documents', [[]])[0]
+            metadatas = retrieved_results.get('metadatas', [[]])[0]
+            distances = retrieved_results.get('distances', [[]])[0]
+
+            for doc, meta, dist in zip(documents, metadatas, distances):
+                fallback_chunks.append({
+                    "document": doc,
+                    "metadata": meta,
+                    "distance": dist
+                })
+            return fallback_chunks
 
     def retrieve(self, query: str, n_results: int = DEFAULT_TOP_K_CHUNKS) -> list[dict]:
         try:
@@ -278,28 +382,52 @@ class RAGPipeline:
         try:
             retrieved_chunks_info = self.retrieve(user_query, n_results=top_k_chunks)
 
+            if not retrieved_chunks_info:
+                return "I do not have enough information to answer your question. No relevant documents were found."
+
+            # Build numbered source list and context
+            numbered_sources = []
             context_chunks = []
-            source_references = set()
             document_summary = "No document summary available."
 
-            for i, chunk_info in enumerate(retrieved_chunks_info):
+            for i, chunk_info in enumerate(retrieved_chunks_info, 1):
                 doc_content = chunk_info["document"]
                 meta = chunk_info["metadata"]
-                
+
                 doc_name = meta.get("document_name", "Unknown Document")
-                page_num = meta.get("page_in_document", "Unknown Page")
-                source_ref = f"{doc_name} (Page: {page_num})"
-                source_references.add(source_ref)
-
-                context_chunks.append(f"Content from {source_ref}:\n\"\"\"\n{doc_content}\n\"\"\"\n")
+                page_num = meta.get("page_in_document", 1)
+                is_approximation = meta.get("page_approximation", "true") == "true"
                 
-                if i == 0 and "summary_of_document" in meta:
-                    document_summary = meta["summary_of_document"]
-            
-            context_string = "\n\n".join(context_chunks)
-            sources_string = "; ".join(sorted(list(source_references)))
+                # Format page number with approximation indicator
+                page_display = f"~{page_num}" if is_approximation else str(page_num)
+                
+                source_ref = f"[{i}] {doc_name} (Page {page_display})"
+                numbered_sources.append(source_ref)
 
-            full_prompt = f"""{self.generation_system_prompt}\n\nDocument Summary: {document_summary}\n\nRetrieved Information:\n{context_string}\n\nSources: {sources_string}\n\nUser Request: {user_query}\n\nAnswer:"""
+                # Add numbered reference to content
+                context_chunks.append(f"Source [{i}]: {doc_name} (Page {page_display})\nContent:\n\"\"\"\n{doc_content}\n\"\"\"\n")
+
+                if i == 1 and "summary_of_document" in meta:
+                    document_summary = meta["summary_of_document"]
+
+            context_string = "\n\n".join(context_chunks)
+            sources_list = "\n".join(numbered_sources)
+
+            full_prompt = f"""{self.generation_system_prompt}
+
+DOCUMENT OVERVIEW: {document_summary}
+
+AVAILABLE INFORMATION:
+{context_string}
+
+INSTRUCTIONS FOR CITATION:
+- Use numbered citations [1], [2], etc. in your answer
+- End your response with a "Sources:" section listing the numbered references
+- Remember that page numbers are approximations (marked with ~)
+
+USER QUESTION: {user_query}
+
+ANSWER:"""
 
             response = self.generative_model.generate_content(full_prompt)
             return response.text
