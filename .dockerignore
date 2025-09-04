@@ -1,0 +1,16 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+.venv
+venv/
+.git
+.gitignore
+.dockerignore
+.DS_Store
+
+# Frontend specific ignores (adjust if your frontend is not in src/frontend or has different build outputs)
+src/frontend/node_modules
+src/frontend/dist

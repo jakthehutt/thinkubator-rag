@@ -1,0 +1,24 @@
+<rule>
+  <name>Update requirements.txt</name>
+  <description>
+    This rule ensures that the `requirements.txt` file is kept up-to-date
+    whenever new Python packages are introduced or existing ones are modified
+    in the codebase.
+  </description>
+  <trigger>
+    <file_change pattern="**/*.py" />
+  </trigger>
+  <action>
+    <command>
+      <![CDATA[
+        # Check if there are any new or missing packages
+        pip install -r requirements.txt || true
+        pip freeze > requirements.txt
+      ]]>
+    </command>
+    <message>
+      `requirements.txt` has been updated based on the Python dependencies in the project.
+      Please review the changes.
+    </message>
+  </action>
+</rule>

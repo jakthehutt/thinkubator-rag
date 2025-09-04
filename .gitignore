@@ -4,3 +4,7 @@
 
 # LangGraph
 .langgraph_api/
+
+# Localfiles
+data/pdfs/
+data/processed/
