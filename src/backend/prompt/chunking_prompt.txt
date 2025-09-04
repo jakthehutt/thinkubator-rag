@@ -1,0 +1,8 @@
+OCR the file into Markdown , inherting Markdown structure.
+Tables should be formatted as HTML.
+Chunk the document into sections of roughly 250 - 1000 words, by
+identify parts of the file with same semantic theme.
+These chunks will later be embedded and used in a RAG pipeline.
+Surround the chunks with $<chunk>$$</chunk>$tags.:
+
+{text}

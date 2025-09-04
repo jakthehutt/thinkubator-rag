@@ -1,0 +1,3 @@
+Summarize the following text chunk concisely, highlighting its main points: 
+
+{chunk_text}
