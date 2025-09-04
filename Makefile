@@ -20,3 +20,9 @@ test-e2e:
 
 test-all:
 	@bash make/test_all.sh
+
+test-frontend:
+	@bash make/test_frontend.sh
+
+run-frontend:
+	@streamlit run src/frontend/app.py

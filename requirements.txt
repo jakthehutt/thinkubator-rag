@@ -5,9 +5,11 @@ python-multipart
 langchain
 langchain-community
 langchain-openai
-pypdf
+pydantic
 langchain-google-genai
 pytest
 google-generativeai
 chromadb
 python-dotenv
+streamlit
+pytest-streamlit
