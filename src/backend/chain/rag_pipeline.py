@@ -5,6 +5,7 @@ import chromadb
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import logging
 import re
+from typing import List
 
 from src.backend.chain.config import (
     CHROMA_DB_PATH,
@@ -14,35 +15,62 @@ from src.backend.chain.config import (
     GENERATION_SYSTEM_PROMPT_PATH,
     GEMINI_GENERATIVE_MODEL,
     GEMINI_EMBEDDING_MODEL,
-    GEMINI_API_KEY,
     DEFAULT_TOP_K_CHUNKS
 )
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+class ChromaEmbeddingWrapper:
+    """Wrapper to make LangChain embeddings compatible with ChromaDB"""
+    
+    def __init__(self, langchain_embeddings):
+        self.embeddings = langchain_embeddings
+    
+    def __call__(self, input: List[str]) -> List[List[float]]:
+        """ChromaDB expects this signature"""
+        return self.embeddings.embed_documents(input)
+    
+    def name(self) -> str:
+        """ChromaDB expects this method"""
+        return "google_generative_ai_embeddings"
+
 class RAGPipeline:
     def __init__(self,
+                 api_key: str = None,
                  chroma_path: str = CHROMA_DB_PATH,
                  chunking_prompt_path: str = CHUNKING_PROMPT_PATH,
                  chunk_summary_prompt_path: str = CHUNK_SUMMARY_PROMPT_PATH,
                  document_summary_prompt_path: str = DOCUMENT_SUMMARY_PROMPT_PATH,
                  generation_system_prompt_path: str = GENERATION_SYSTEM_PROMPT_PATH):
         
-        # Initialize Gemini API if key is available
-        if GEMINI_API_KEY:
-            genai.configure(api_key=GEMINI_API_KEY)
+        # --- Configure the Gemini API at runtime ---
+        # Priority:
+        # 1. API key passed directly to the constructor.
+        # 2. API key from the environment variable.
+        # 3. Fallback to Application Default Credentials (ADC).
+        effective_api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        
+        if effective_api_key:
+            genai.configure(api_key=effective_api_key)
+            # Also configure the embedding model with the API key
+            langchain_embeddings = GoogleGenerativeAIEmbeddings(
+                model=GEMINI_EMBEDDING_MODEL,
+                google_api_key=effective_api_key
+            )
+            self.embedding_model = ChromaEmbeddingWrapper(langchain_embeddings)
         else:
-            logging.error("GEMINI_API_KEY not found in environment variables. Please set it. The pipeline will not function without it.")
-            raise ValueError("GEMINI_API_KEY is not set.")
+            # If no API key is found, we log a message and assume ADC is configured.
+            logging.info("No direct API key or environment variable found. Falling back to Application Default Credentials.")
+            langchain_embeddings = GoogleGenerativeAIEmbeddings(model=GEMINI_EMBEDDING_MODEL)
+            self.embedding_model = ChromaEmbeddingWrapper(langchain_embeddings)
 
         self.chroma_client = chromadb.PersistentClient(path=chroma_path)
-        self.embedding_model = GoogleGenerativeAIEmbeddings(model=GEMINI_EMBEDDING_MODEL)
         self.generative_model = genai.GenerativeModel(GEMINI_GENERATIVE_MODEL)
         
         self.collection = self.chroma_client.get_or_create_collection(
             name="rag_chunks",
-            embedding_function=self.embedding_model # Use the Gemini embedding model
+            embedding_function=self.embedding_model # Use the wrapped embedding model
         )
         
         self.chunking_prompt = self._load_prompt(chunking_prompt_path)

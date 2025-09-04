@@ -25,7 +25,6 @@ GEMINI_EMBEDDING_MODEL = "models/embedding-001"
 # --- Other Config ---
 DEFAULT_TOP_K_CHUNKS = 5
 
-# --- API Keys ---
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    logging.warning("GEMINI_API_KEY environment variable not set in .env or environment. Operations requiring Gemini may fail.")
+# --- API KEYS ---
+# The API key is now fetched directly in the RAGPipeline class for robustness.
+# GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")

@@ -20,97 +20,72 @@ else:
 sys.path.insert(0, project_root)
 
 from src.backend.chain.rag_pipeline import RAGPipeline
-from src.backend.chain.config import GEMINI_API_KEY
+# from src.backend.chain.config import GEMINI_API_KEY # No longer needed, handled in pipeline
 
 def main():
     st.set_page_config(page_title="Thinkubator RAG Pipeline Explorer", layout="wide")
 
     st.title("Thinkubator RAG Pipeline Explorer")
+
+    # --- API Key Input in Sidebar ---
+    st.sidebar.header("Configuration")
+    api_key_input = st.sidebar.text_input(
+        "Enter your Gemini API Key", 
+        type="password",
+        help="Get your key from Google AI Studio. The app will use this key to initialize the pipeline."
+    )
+
+    # --- Pipeline Initialization ---
+    # The pipeline is now initialized only after a key is provided.
+    if api_key_input:
+        if 'rag_pipeline' not in st.session_state or st.session_state.api_key != api_key_input:
+            with st.spinner("Initializing RAG Pipeline with new API Key..."):
+                try:
+                    # Pass the key directly to the pipeline
+                    pipeline = RAGPipeline(api_key=api_key_input)
+                    st.session_state.rag_pipeline = pipeline
+                    st.session_state.api_key = api_key_input # Store the key to detect changes
+                    st.sidebar.success("Pipeline Initialized!")
+                except Exception as e:
+                    st.error(f"Error initializing RAG Pipeline: {e}")
+                    st.stop()
+    
+    # --- Main App Body ---
     st.markdown("""
-        This application allows you to test and visualize the different components of the RAG (Retrieval-Augmented Generation) pipeline.
-        Enter a query below to see the retrieved chunks, the generated system prompt, and the final answer from the LLM.
+    This application allows you to test and visualize the different components of the RAG (Retrieval-Augmented Generation) pipeline. 
+    
+    **Enter your Gemini API Key in the sidebar to begin.**
     """)
 
-    # Check for GEMINI_API_KEY
-    if not GEMINI_API_KEY:
-        st.error("GEMINI_API_KEY environment variable not set. Please set it in your .env file at the project root.")
-        st.stop()
+    # Only show the query interface if the pipeline is ready
+    if 'rag_pipeline' in st.session_state:
+        st.subheader("Query the RAG Pipeline")
+        user_query = st.text_input("Enter your query:", "What is the circularity gap?")
 
-    # Instantiate the RAGPipeline
-    # This might take a moment as it loads the embedding model
-    with st.spinner("Initializing RAG Pipeline..."):
-        try:
-            pipeline = RAGPipeline()
-            st.session_state.pipeline = pipeline
-            st.success("RAG Pipeline initialized successfully.")
-        except Exception as e:
-            st.error(f"Error initializing RAG Pipeline: {e}")
-            st.stop()
-    
-    # User input
-    user_query = st.text_input("Enter your query:", "What is the circularity gap?")
+        if st.button("Generate Answer"):
+            if user_query:
+                pipeline = st.session_state.rag_pipeline
+                
+                with st.spinner("Retrieving chunks, generating prompt, and getting answer..."):
+                    try:
+                        # ... (rest of the code for displaying results remains the same) ...
+                        retrieved_chunks = pipeline.retrieve(user_query)
+                        answer = pipeline.generate_answer(user_query)
 
-    if st.button("Generate Answer"):
-        if 'pipeline' in st.session_state and user_query:
-            pipeline = st.session_state.pipeline
-            
-            with st.spinner("Retrieving chunks from ChromaDB..."):
-                try:
-                    retrieved_chunks_info = pipeline.retrieve(user_query, n_results=5)
-                except Exception as e:
-                    st.error(f"Error retrieving chunks: {e}")
-                    retrieved_chunks_info = []
+                        st.divider()
+                        st.header("Final Answer")
+                        st.markdown(answer)
 
-            st.header("1. Retrieved Chunks and Metadata")
-            if retrieved_chunks_info:
-                with st.expander("View Retrieved Chunks", expanded=True):
-                    for i, chunk_info in enumerate(retrieved_chunks_info):
-                        st.subheader(f"Chunk {i+1}")
-                        st.text(f"Source: {chunk_info['metadata'].get('document_name', 'N/A')} (Page: {chunk_info['metadata'].get('page_in_document', 'N/A')})")
-                        st.text(f"Distance: {chunk_info['distance']:.4f}")
-                        st.text_area("Chunk Content", chunk_info['document'], height=200, key=f"chunk_{i}")
-                        st.json(chunk_info['metadata'])
-            else:
-                st.warning("No chunks were retrieved for this query.")
+                        st.divider()
+                        st.header("Retrieved Chunks and Metadata")
+                        st.write("These are the top chunks retrieved from the database that were used to generate the answer.")
+                        for i, chunk_info in enumerate(retrieved_chunks):
+                            with st.expander(f"Chunk {i+1} (Source: {chunk_info['metadata'].get('document_name', 'N/A')}, Page: {chunk_info['metadata'].get('page_in_document', 'N/A')})"):
+                                st.text(chunk_info['document'])
+                                st.json(chunk_info['metadata'])
 
-            with st.spinner("Generating system prompt and final answer..."):
-                try:
-                    # Construct the full prompt (similar to generate_answer logic)
-                    context_chunks = []
-                    source_references = set()
-                    document_summary = "No document summary available."
-                    
-                    for i, chunk_info in enumerate(retrieved_chunks_info):
-                        doc_content = chunk_info["document"]
-                        meta = chunk_info["metadata"]
-                        doc_name = meta.get("document_name", "Unknown Document")
-                        page_num = meta.get("page_in_document", "Unknown Page")
-                        source_ref = f"{doc_name} (Page: {page_num})"
-                        source_references.add(source_ref)
-                        context_chunks.append(f"Content from {source_ref}:\n\"\"\"\n{doc_content}\n\"\"\"\n")
-                        if i == 0 and "summary_of_document" in meta:
-                            document_summary = meta["summary_of_document"]
-                    
-                    context_string = "\n\n".join(context_chunks)
-                    sources_string = "; ".join(sorted(list(source_references)))
-
-                    full_prompt = f"{pipeline.generation_system_prompt}\n\nDocument Summary: {document_summary}\n\nRetrieved Information:\n{context_string}\n\nSources: {sources_string}\n\nUser Request: {user_query}\n\nAnswer:"
-                    
-                    st.header("2. System Prompt")
-                    with st.expander("View Full System Prompt"):
-                        st.text_area("Full Prompt Sent to LLM", full_prompt, height=400)
-
-                    # Generate the final answer
-                    generated_answer = pipeline.generate_answer(user_query, top_k_chunks=5)
-                    
-                    st.header("3. Final Generated Answer")
-                    st.markdown(generated_answer)
-
-                except Exception as e:
-                    st.error(f"Error generating answer: {e}")
-
-        elif not user_query:
-            st.warning("Please enter a query.")
+                    except Exception as e:
+                        st.error(f"An error occurred during generation: {e}")
 
 if __name__ == "__main__":
     main()

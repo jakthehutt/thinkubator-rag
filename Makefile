@@ -12,11 +12,11 @@ test-retrieving:
 test-generation:
 	@bash make/test_generation.sh
 
-ingest-pdfs:
-	@python src/backend/ingest_documents.py
-
 test-e2e:
-	@bash make/test_e2e_rag.sh
+	@bash make/test_e2e.sh
+
+ingest-pdfs:
+	@bash make/ingest_pdfs.sh
 
 test-all:
 	@bash make/test_all.sh
@@ -25,4 +25,4 @@ test-frontend:
 	@bash make/test_frontend.sh
 
 run-frontend:
-	@streamlit run src/frontend/app.py
+	@python -m streamlit run src/frontend/app.py
