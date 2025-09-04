@@ -3,20 +3,52 @@ import pypdf
 import google.generativeai as genai
 import chromadb
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-# from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction # This will be replaced with Gemini embedding
+import logging # Re-add logging
+import re
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# --- Paths (Inlined for now to resolve import issues) ---
+BASE_DIR_RAG = os.path.dirname(os.path.abspath(__file__))
+PROMPT_DIR_RAG = os.path.join(BASE_DIR_RAG, "prompt")
+CHROMA_DB_PATH_RAG = os.path.join(BASE_DIR_RAG, "..", "..", "data", "processed", "chroma_db")
+
+CHUNKING_PROMPT_PATH_RAG = os.path.join(PROMPT_DIR_RAG, "chunking_prompt.txt")
+CHUNK_SUMMARY_PROMPT_PATH_RAG = os.path.join(PROMPT_DIR_RAG, "chunk_summary_prompt.txt")
+DOCUMENT_SUMMARY_PROMPT_PATH_RAG = os.path.join(PROMPT_DIR_RAG, "document_summary_prompt.txt")
+GENERATION_SYSTEM_PROMPT_PATH_RAG = os.path.join(PROMPT_DIR_RAG, "generation_system_prompt.txt")
+
+# --- Gemini Models (Inlined for now to resolve import issues) ---
+GEMINI_GENERATIVE_MODEL_RAG = "gemini-pro"
+GEMINI_EMBEDDING_MODEL_RAG = "models/embedding-001"
+
+# --- Other Config (Inlined for now to resolve import issues) ---
+DEFAULT_TOP_K_CHUNKS_RAG = 5
+
+# --- API Keys (Inlined for now to resolve import issues) ---
+GEMINI_API_KEY_RAG = os.getenv("GEMINI_API_KEY")
+
 
 class RAGPipeline:
-    def __init__(self, 
-                 chroma_path: str = "./data/processed/chroma_db",
-                 chunking_prompt_path: str = "./src/backend/prompt/chunking_prompt.txt",
-                 chunk_summary_prompt_path: str = "./src/backend/prompt/chunk_summary_prompt.txt",
-                 document_summary_prompt_path: str = "./src/backend/prompt/document_summary_prompt.txt"):
+    def __init__(self,
+                 chroma_path: str = CHROMA_DB_PATH_RAG,
+                 chunking_prompt_path: str = CHUNKING_PROMPT_PATH_RAG,
+                 chunk_summary_prompt_path: str = CHUNK_SUMMARY_PROMPT_PATH_RAG,
+                 document_summary_prompt_path: str = DOCUMENT_SUMMARY_PROMPT_PATH_RAG,
+                 generation_system_prompt_path: str = GENERATION_SYSTEM_PROMPT_PATH_RAG):
         
+        # Initialize Gemini API if key is available
+        if GEMINI_API_KEY_RAG:
+            genai.configure(api_key=GEMINI_API_KEY_RAG)
+        else:
+            logging.error("GEMINI_API_KEY not found in environment variables. Please set it.")
+            raise ValueError("GEMINI_API_KEY is not set.")
+
         self.chroma_client = chromadb.PersistentClient(path=chroma_path)
-        self.embedding_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-        self.generative_model = genai.GenerativeModel("gemini-pro")
+        self.embedding_model = GoogleGenerativeAIEmbeddings(model=GEMINI_EMBEDDING_MODEL_RAG)
+        self.generative_model = genai.GenerativeModel(GEMINI_GENERATIVE_MODEL_RAG)
         
-        # Create or get the collection with the custom embedding function
         self.collection = self.chroma_client.get_or_create_collection(
             name="rag_chunks",
             embedding_function=self.embedding_model # Use the Gemini embedding model
@@ -25,25 +57,47 @@ class RAGPipeline:
         self.chunking_prompt = self._load_prompt(chunking_prompt_path)
         self.chunk_summary_prompt = self._load_prompt(chunk_summary_prompt_path)
         self.document_summary_prompt = self._load_prompt(document_summary_prompt_path)
+        self.generation_system_prompt = self._load_prompt(generation_system_prompt_path)
 
     def _load_prompt(self, file_path: str) -> str:
-        with open(file_path, 'r') as f:
-            return f.read().strip()
+        try:
+            with open(file_path, 'r') as f:
+                return f.read().strip()
+        except FileNotFoundError:
+            logging.error(f"Prompt file not found: {file_path}")
+            raise
 
     def ingest_pdf(self, pdf_path: str, document_name: str, general_metadata: dict = None):
         if general_metadata is None:
             general_metadata = {}
 
-        full_document_text, page_texts_with_num = self._extract_text_from_pdf(pdf_path)
+        try:
+            full_document_text, page_texts_with_num = self._extract_text_from_pdf(pdf_path)
+        except Exception as e:
+            logging.error(f"Error extracting text from PDF {pdf_path}: {e}")
+            raise
 
-        document_summary = self._summarize_document(full_document_text)
+        try:
+            document_summary = self._summarize_document(full_document_text)
+        except Exception as e:
+            logging.error(f"Error summarizing document {document_name}: {e}")
+            raise
 
-        chunks = self._chunk_text(full_document_text)
+        try:
+            chunks = self._chunk_text(full_document_text)
+        except Exception as e:
+            logging.error(f"Error chunking document {document_name}: {e}")
+            raise
 
         chunks_to_store = [] # List of (chunk_text, metadata, id)
 
         for chunk_idx, chunk_text in enumerate(chunks):
-            chunk_summary = self._summarize_chunk(chunk_text)
+            try:
+                chunk_summary = self._summarize_chunk(chunk_text)
+            except Exception as e:
+                logging.warning(f"Could not summarize chunk {chunk_idx} from {document_name}: {e}")
+                chunk_summary = ""
+
             page_in_document = self._get_page_number_for_chunk(chunk_text, page_texts_with_num)
 
             metadata = {
@@ -57,7 +111,11 @@ class RAGPipeline:
             chunk_id = f"{document_name}_{page_in_document}_{chunk_idx}"
             chunks_to_store.append((chunk_text, metadata, chunk_id))
         
-        self._store_chunks_in_chroma(chunks_to_store)
+        try:
+            self._store_chunks_in_chroma(chunks_to_store)
+        except Exception as e:
+            logging.error(f"Error storing chunks for {document_name} in ChromaDB: {e}")
+            raise
 
     def _extract_text_from_pdf(self, pdf_path: str) -> tuple[str, list[tuple[int, str]]]:
         text = ""
@@ -69,6 +127,38 @@ class RAGPipeline:
                 text += page_content + "\n\n"
                 page_texts_with_num.append((page_num + 1, page_content)) # Store (page_number, text)
         return text, page_texts_with_num
+
+    def _chunk_text(self, text: str) -> list[str]:
+        prompt = self.chunking_prompt.format(text=text)
+        try:
+            response = self.generative_model.generate_content(prompt)
+            # Use regex to find content between <chunk> and </chunk> tags
+            chunks = re.findall(r'(<chunk>.*?</chunk>)', response.text, re.DOTALL)
+            if not chunks:
+                logging.warning("No chunks found using the specified tags. Returning raw split by newline.")
+                return response.text.split("\n\n") # Fallback
+            return chunks
+        except Exception as e:
+            logging.error(f"Error during text chunking with Gemini: {e}")
+            raise
+
+    def _summarize_chunk(self, chunk_text: str) -> str:
+        prompt = self.chunk_summary_prompt.format(chunk_text=chunk_text)
+        try:
+            response = self.generative_model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            logging.error(f"Error summarizing chunk with Gemini: {e}")
+            raise
+
+    def _summarize_document(self, document_text: str) -> str:
+        prompt = self.document_summary_prompt.format(document_text=document_text)
+        try:
+            response = self.generative_model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            logging.error(f"Error summarizing document with Gemini: {e}")
+            raise
 
     def _get_page_number_for_chunk(self, chunk_text: str, page_texts_with_num: list[tuple[int, str]]) -> int | None:
         """Heuristically determines the primary page number for a given chunk.
@@ -83,41 +173,34 @@ class RAGPipeline:
                 return page_num
         return None
 
-    def _chunk_text(self, text: str) -> list[str]:
-        prompt = self.chunking_prompt.format(text=text)
-        response = self.generative_model.generate_content(prompt)
-        return response.text.split("\n\n")
-
-    def _summarize_chunk(self, chunk_text: str) -> str:
-        prompt = self.chunk_summary_prompt.format(chunk_text=chunk_text)
-        response = self.generative_model.generate_content(prompt)
-        return response.text
-
-    def _summarize_document(self, document_text: str) -> str:
-        prompt = self.document_summary_prompt.format(document_text=document_text)
-        response = self.generative_model.generate_content(prompt)
-        return response.text
-
     def _store_chunks_in_chroma(self, chunks_with_metadata: list[tuple[str, dict, str]]):
         documents = [item[0] for item in chunks_with_metadata]
         metadatas = [item[1] for item in chunks_with_metadata]
         ids = [item[2] for item in chunks_with_metadata]
 
-        self.collection.add(
-            documents=documents,
-            metadatas=metadatas,
-            ids=ids
-        )
-        print(f"Stored {len(documents)} chunks in ChromaDB.")
+        try:
+            self.collection.add(
+                documents=documents,
+                metadatas=metadatas,
+                ids=ids
+            )
+            logging.info(f"Stored {len(documents)} chunks in ChromaDB.")
+        except Exception as e:
+            logging.error(f"Failed to add chunks to ChromaDB: {e}")
+            raise
 
-    def _query_database(self, query_texts: list[str], n_results: int = 5) -> dict:
+    def _query_database(self, query_texts: list[str], n_results: int = DEFAULT_TOP_K_CHUNKS_RAG) -> dict:
         """Retrieves the most relevant chunks from ChromaDB based on the query."""
-        results = self.collection.query(
-            query_texts=query_texts,
-            n_results=n_results,
-            include=['documents', 'metadatas', 'distances']
-        )
-        return results
+        try:
+            results = self.collection.query(
+                query_texts=query_texts,
+                n_results=n_results,
+                include=['documents', 'metadatas', 'distances']
+            )
+            return results
+        except Exception as e:
+            logging.error(f"Error querying ChromaDB: {e}")
+            raise
 
     def _pre_query_transformation(self, query: str) -> str:
         """Placeholder for pre-query transformation (e.g., query rewriting, expansion).
@@ -151,13 +234,58 @@ class RAGPipeline:
                 "distance": dist
             })
         
-        # In a simple case, ChromaDB already returns sorted by distance, so we just return.
-        # For more complex reranking, custom sorting logic would go here.
         return reranked_chunks
 
-    def retrieve(self, query: str, n_results: int = 5) -> list[dict]:
-        """Main method to retrieve, pre-process, and rerank document chunks."""
-        transformed_query = self._pre_query_transformation(query)
-        retrieved_results = self._query_database([transformed_query], n_results)
-        reranked_chunks = self._rerank_chunks(query, retrieved_results)
-        return reranked_chunks
+    def retrieve(self, query: str, n_results: int = DEFAULT_TOP_K_CHUNKS_RAG) -> list[dict]:
+        try:
+            transformed_query = self._pre_query_transformation(query)
+            retrieved_results = self._query_database([transformed_query], n_results)
+            reranked_chunks = self._rerank_chunks(query, retrieved_results)
+            return reranked_chunks
+        except Exception as e:
+            logging.error(f"Error during retrieval for query \"{query}\": {e}")
+            raise
+
+    def generate_answer(self, user_query: str, top_k_chunks: int = DEFAULT_TOP_K_CHUNKS_RAG) -> str:
+        try:
+            retrieved_chunks_info = self.retrieve(user_query, n_results=top_k_chunks)
+
+            context_chunks = []
+            source_references = set()
+            document_summary = "No document summary available."
+
+            for i, chunk_info in enumerate(retrieved_chunks_info):
+                doc_content = chunk_info["document"]
+                meta = chunk_info["metadata"]
+                
+                doc_name = meta.get("document_name", "Unknown Document")
+                page_num = meta.get("page_in_document", "Unknown Page")
+                source_ref = f"{doc_name} (Page: {page_num})"
+                source_references.add(source_ref)
+
+                context_chunks.append(f"Content from {source_ref}:\n\"\"\"\n{doc_content}\n\"\"\"\n")
+                
+                if i == 0 and "summary_of_document" in meta:
+                    document_summary = meta["summary_of_document"]
+            
+            context_string = "\n\n".join(context_chunks)
+            sources_string = "; ".join(sorted(list(source_references)))
+
+            full_prompt = f"""{self.generation_system_prompt}
+
+Document Summary: {document_summary}
+
+Retrieved Information:
+{context_string}
+
+Sources: {sources_string}
+
+User Request: {user_query}
+
+Answer:"""
+
+            response = self.generative_model.generate_content(full_prompt)
+            return response.text
+        except Exception as e:
+            logging.error(f"Error generating answer for query \"{user_query}\": {e}")
+            raise
