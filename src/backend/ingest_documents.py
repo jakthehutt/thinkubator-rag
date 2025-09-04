@@ -1,8 +1,9 @@
 import os
 import sys
+import json
 from dotenv import load_dotenv
 import logging
-# from dotenv import load_dotenv # Removed, as config.py handles this
+from datetime import datetime
 
 # --- Robustly find and load the .env file ---
 # This script is in src/backend/ingest_documents.py
@@ -37,29 +38,68 @@ from src.backend.chain.config import (
 )
 
 def ingest_all_pdfs(pdf_directory: str = "./data/pdfs", chroma_db_path: str = CHROMA_DB_PATH):
-    # The RAGPipeline constructor handles GEMINI_API_KEY check and genai.configure(api_key=...) internally
-    pipeline = RAGPipeline(chroma_path=chroma_db_path)
+    """
+    Ingest all PDFs from the specified directory using the RAGPipeline class.
+    The RAGPipeline.ingest_pdf method already handles all the processing.
+    """
+    logging.info("Initializing RAG Pipeline...")
     
-    # Ensure the ChromaDB directory exists
+    # Get the API key from environment
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        logging.error("GEMINI_API_KEY not found in environment. Please check your .env file.")
+        raise ValueError("GEMINI_API_KEY is required for ingestion.")
+    
+    logging.info("API key found, initializing pipeline...")
+    pipeline = RAGPipeline(api_key=api_key, chroma_path=chroma_db_path)
+    
+    # Ensure directories exist
     os.makedirs(chroma_db_path, exist_ok=True)
-
-    # Ensure the PDF directory exists
     if not os.path.exists(pdf_directory):
         logging.error(f"PDF directory not found: {pdf_directory}")
         raise FileNotFoundError(f"PDF directory not found: {pdf_directory}")
 
-    for filename in os.listdir(pdf_directory):
-        if filename.endswith(".pdf"):  # Process only PDF files
-            pdf_path = os.path.join(pdf_directory, filename)
-            document_name = filename.replace(".pdf", "") # Use filename as document name
-            logging.info(f"Ingesting {document_name} from {pdf_path}...")
+    # Get list of PDF files
+    pdf_files = [f for f in os.listdir(pdf_directory) if f.endswith(".pdf")]
+    total_files = len(pdf_files)
+    
+    logging.info(f"Found {total_files} PDF files to process")
+    
+    successful = 0
+    failed = 0
+    
+    for i, filename in enumerate(pdf_files, 1):
+        pdf_path = os.path.join(pdf_directory, filename)
+        document_name = filename.replace(".pdf", "")
+        
+        logging.info(f"[{i}/{total_files}] Processing: {document_name}")
+        
+        try:
+            # Use the RAGPipeline's built-in ingest_pdf method
+            # It handles: extraction, chunking, summarization, and ChromaDB storage
+            general_metadata = {
+                "source_file": filename,
+                "source_directory": pdf_directory,
+                "processed_at": datetime.now().isoformat()
+            }
             
-            try:
-                # General metadata can be extended here if needed
-                pipeline.ingest_pdf(pdf_path, document_name, general_metadata={"source_directory": pdf_directory})
-                logging.info(f"Successfully ingested {document_name}.")
-            except Exception as e:
-                logging.error(f"Error ingesting {document_name}: {e}")
+            pipeline.ingest_pdf(pdf_path, document_name, general_metadata=general_metadata)
+            successful += 1
+            logging.info(f"✅ Successfully processed: {document_name}")
+            
+        except Exception as e:
+            failed += 1
+            logging.error(f"❌ Failed to process {document_name}: {e}")
+    
+    # Final summary
+    logging.info(f"""
+    📊 INGESTION SUMMARY:
+    ✅ Successful: {successful}/{total_files}
+    ❌ Failed: {failed}/{total_files}
+    
+    The ChromaDB now contains chunks from {successful} documents.
+    You can now query the RAG pipeline!
+    """)
 
 if __name__ == "__main__":
     ingest_all_pdfs()

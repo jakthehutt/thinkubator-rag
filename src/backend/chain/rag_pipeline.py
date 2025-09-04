@@ -119,15 +119,24 @@ class RAGPipeline:
 
             page_in_document = self._get_page_number_for_chunk(chunk_text, page_texts_with_num)
 
+            # Flatten general_metadata and ensure all values are ChromaDB compatible
             metadata = {
-                "document_name": document_name,
-                "page_in_document": page_in_document,
-                "summary_of_chunk": chunk_summary,
-                "summary_of_document": document_summary,
-                "general_metadata": general_metadata.copy() # Ensure a copy to avoid mutation
+                "document_name": str(document_name),
+                "page_in_document": int(page_in_document) if page_in_document is not None else 0,
+                "summary_of_chunk": str(chunk_summary) if chunk_summary else "",
+                "summary_of_document": str(document_summary) if document_summary else "",
             }
+            
+            # Add general_metadata fields with a prefix to avoid naming conflicts
+            for key, value in general_metadata.items():
+                # Convert all values to strings and handle None values
+                if value is not None:
+                    metadata[f"meta_{key}"] = str(value)
+                else:
+                    metadata[f"meta_{key}"] = ""
             # Generate a unique ID for each chunk. For updates, this ID will be crucial.
-            chunk_id = f"{document_name}_{page_in_document}_{chunk_idx}"
+            page_for_id = page_in_document if page_in_document is not None else 0
+            chunk_id = f"{document_name}_{page_for_id}_{chunk_idx}"
             chunks_to_store.append((chunk_text, metadata, chunk_id))
         
         try:
