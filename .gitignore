@@ -8,3 +8,5 @@
 # Localfiles
 data/pdfs/
 data/processed/
+
+.env
