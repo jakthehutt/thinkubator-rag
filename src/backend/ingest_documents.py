@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+from typing import List, Tuple
 from dotenv import load_dotenv
 import logging
 from datetime import datetime
@@ -36,6 +37,63 @@ from src.backend.chain.rag_pipeline import RAGPipeline
 from src.backend.chain.config import (
     CHROMA_DB_PATH,
 )
+
+def save_processed_document_to_json(document_name: str, full_text: str, page_texts: List[Tuple[int, str]], 
+                                  chunks: List[str], document_summary: str, chunk_summaries: List[str],
+                                  processed_dir: str = "./data/processed/md"):
+    """
+    Save the complete processed document data to JSON file.
+    
+    Args:
+        document_name (str): Name of the document
+        full_text (str): Complete extracted text
+        page_texts (List[Tuple[int, str]]): List of (page_number, page_text) tuples
+        chunks (List[str]): Generated chunks
+        document_summary (str): Document summary
+        chunk_summaries (List[str]): Summary for each chunk
+        processed_dir (str): Directory to save JSON files
+    """
+    os.makedirs(processed_dir, exist_ok=True)
+    
+    # Prepare structured data
+    document_data = {
+        "document_info": {
+            "name": document_name,
+            "processed_at": datetime.now().isoformat(),
+            "total_pages": len(page_texts),
+            "total_chunks": len(chunks),
+            "total_characters": len(full_text)
+        },
+        "document_summary": document_summary,
+        "full_text": full_text,
+        "pages": [
+            {
+                "page_number": page_num,
+                "content": page_content,
+                "character_count": len(page_content)
+            }
+            for page_num, page_content in page_texts
+        ],
+        "chunks": [
+            {
+                "chunk_id": i,
+                "content": chunk,
+                "summary": chunk_summaries[i] if i < len(chunk_summaries) else "",
+                "character_count": len(chunk),
+                "estimated_page": None  # Will be calculated later
+            }
+            for i, chunk in enumerate(chunks)
+        ]
+    }
+    
+    # Save to JSON file
+    json_filename = f"{document_name}_processed.json"
+    json_path = os.path.join(processed_dir, json_filename)
+    
+    with open(json_path, 'w', encoding='utf-8') as f:
+        json.dump(document_data, f, indent=2, ensure_ascii=False)
+    
+    logging.info(f"💾 Saved processed document data to {json_path}")
 
 def ingest_all_pdfs(pdf_directory: str = "./data/pdfs", chroma_db_path: str = CHROMA_DB_PATH):
     """
@@ -75,8 +133,33 @@ def ingest_all_pdfs(pdf_directory: str = "./data/pdfs", chroma_db_path: str = CH
         logging.info(f"[{i}/{total_files}] Processing: {document_name}")
         
         try:
-            # Use the RAGPipeline's built-in ingest_pdf method
-            # It handles: extraction, chunking, summarization, and ChromaDB storage
+            # Extract and process document data for JSON export
+            logging.info(f"   📖 Extracting text from {document_name}...")
+            full_text, page_texts = pipeline._extract_text_from_pdf(pdf_path)
+            
+            logging.info(f"   📝 Generating document summary...")
+            document_summary = pipeline._summarize_document(full_text)
+            
+            logging.info(f"   ✂️  Chunking document...")
+            chunks = pipeline._chunk_text(full_text)
+            
+            logging.info(f"   📋 Summarizing {len(chunks)} chunks...")
+            chunk_summaries = []
+            for chunk in chunks:
+                try:
+                    chunk_summary = pipeline._summarize_chunk(chunk)
+                    chunk_summaries.append(chunk_summary)
+                except Exception as e:
+                    logging.warning(f"Failed to summarize chunk: {e}")
+                    chunk_summaries.append("")
+            
+            # Save processed data to JSON
+            save_processed_document_to_json(
+                document_name, full_text, page_texts, chunks, 
+                document_summary, chunk_summaries
+            )
+            
+            # Use the RAGPipeline's built-in ingest_pdf method for ChromaDB storage
             general_metadata = {
                 "source_file": filename,
                 "source_directory": pdf_directory,

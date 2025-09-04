@@ -45,8 +45,10 @@ def test_storing_chunks(mock_rag_pipeline):
             assert kwargs["metadatas"][0]["document_name"] == document_name
             assert kwargs["metadatas"][0]["summary_of_chunk"] == "Summary of Chunk 1"
             assert kwargs["metadatas"][0]["summary_of_document"] == "Two sentence summary of the document."
-            assert kwargs["metadatas"][0]["general_metadata"] == general_meta
+            # Check flattened metadata (now prefixed with meta_)
+            assert kwargs["metadatas"][0]["meta_category"] == "test"
             assert kwargs["metadatas"][0]["page_in_document"] == 1
+            assert kwargs["metadatas"][0]["page_approximation"] == "true"
 
             assert kwargs["ids"][0] == f"{document_name}_1_0"
 

@@ -54,19 +54,20 @@ def test_generate_answer(mock_rag_pipeline):
         # The pipeline.generation_system_prompt attribute should already be set by the fixture.
         assert pipeline.generation_system_prompt.strip() in called_prompt.strip()
 
-        # Assert that document summary is included
-        assert "Document Summary: Summary of Doc1." in called_prompt
+        # Assert that document overview is included (new format)
+        assert "DOCUMENT OVERVIEW: Summary of Doc1." in called_prompt
 
-        # Assert that chunk contents are included with source references
-        assert 'Content from Doc1.pdf (Page: 1):\n"""\n<chunk>This is a meaningful section about document structure from Doc1.</chunk>\n"""' in called_prompt
-        assert 'Content from Doc1.pdf (Page: 2):\n"""\n<chunk>This section discusses the content of page 2 and its relevance from Doc1.</chunk>\n"""' in called_prompt
-        assert 'Content from Doc2.pdf (Page: 3):\n"""\n<chunk>Content from another relevant document, Doc2.</chunk>\n"""' in called_prompt
+        # Assert that chunk contents are included with new numbered format
+        assert "Source [1]: Doc1.pdf (Page ~1)" in called_prompt
+        assert "Source [2]: Doc1.pdf (Page ~2)" in called_prompt
+        assert "Source [3]: Doc2.pdf (Page ~3)" in called_prompt
 
-        # Assert that sources are listed
-        assert 'Sources: Doc1.pdf (Page: 1); Doc1.pdf (Page: 2); Doc2.pdf (Page: 3)' in called_prompt
+        # Assert that the new format instructions are included
+        assert "INSTRUCTIONS FOR CITATION:" in called_prompt
+        assert "Use numbered citations [1], [2], etc. in your answer" in called_prompt
 
         # Assert that user query is included
-        assert f"User Request: {user_query}" in called_prompt
+        assert f"USER QUESTION: {user_query}" in called_prompt
 
         # Assert the final answer
         assert generated_answer == "Generated answer based on context."

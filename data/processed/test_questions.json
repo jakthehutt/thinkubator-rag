@@ -1,0 +1,107 @@
+{
+  "metadata": {
+    "created_at": "2025-09-05T00:42:52.978691",
+    "total_questions": 20,
+    "documents_analyzed": [
+      "cgr23",
+      "Peter_Lacy_Jessica_Long_Wesley_Spindler_The_circul",
+      "cgr25",
+      "cgr22"
+    ],
+    "coverage_areas": [
+      "factual_questions",
+      "comparison_questions",
+      "conceptual_questions"
+    ]
+  },
+  "content_samples": [
+    {
+      "query": "circularity gap",
+      "content": "<chunk>\nThe global economy is only 7.2% circular, a figure declining year-on-year due to increasing material extraction and use.  Over the past six years, the global economy extracted and used more materials than in the entire 20th century, improving living standards but exceeding safe environmental",
+      "document": "cgr23",
+      "page": 5
+    },
+    {
+      "query": "circularity gap",
+      "content": "<chunk>\nThe Circularity Gap Report 2025 analyzes the global state of the circular economy transition.  The report's main finding is that despite some progress, global material extraction is trending upwards, while recycling and controlled disposal rates are trending downwards.  The Circularity Metri",
+      "document": "cgr25",
+      "page": 12
+    },
+    {
+      "query": "circular economy",
+      "content": "<chunk>\nThe report concludes with calls to action for governments and businesses.  For governments, key actions include:  leading the circular transition through smart policies and multilateral collaboration; shaping economic conditions to promote circularity (e.g.,  adjusting taxes and subsidies); ",
+      "document": "cgr25",
+      "page": 15
+    },
+    {
+      "query": "circular economy",
+      "content": "<chunk>\n## Conclusion\n\n\"The Circular Economy Handbook\" offers a valuable, academically rigorous, and practically oriented guide for understanding and implementing circular economy principles. The authors effectively bridge social-humanistic, interdisciplinary, and medical sciences to address climate",
+      "document": "Peter_Lacy_Jessica_Long_Wesley_Spindler_The_circul",
+      "page": 3
+    },
+    {
+      "query": "waste management",
+      "content": "<chunk>\n## Conclusion\n\n\"The Circular Economy Handbook\" offers a valuable, academically rigorous, and practically oriented guide for understanding and implementing circular economy principles. The authors effectively bridge social-humanistic, interdisciplinary, and medical sciences to address climate",
+      "document": "Peter_Lacy_Jessica_Long_Wesley_Spindler_The_circul",
+      "page": 3
+    },
+    {
+      "query": "waste management",
+      "content": "<chunk>\nThe report concludes with calls to action for governments and businesses.  For governments, key actions include:  leading the circular transition through smart policies and multilateral collaboration; shaping economic conditions to promote circularity (e.g.,  adjusting taxes and subsidies); ",
+      "document": "cgr25",
+      "page": 15
+    },
+    {
+      "query": "sustainability",
+      "content": "<chunk>\nThe report concludes with calls to action for governments and businesses.  For governments, key actions include:  leading the circular transition through smart policies and multilateral collaboration; shaping economic conditions to promote circularity (e.g.,  adjusting taxes and subsidies); ",
+      "document": "cgr25",
+      "page": 15
+    },
+    {
+      "query": "sustainability",
+      "content": "<chunk>\nThe global economy is only 7.2% circular, a figure declining year-on-year due to increasing material extraction and use.  Over the past six years, the global economy extracted and used more materials than in the entire 20th century, improving living standards but exceeding safe environmental",
+      "document": "cgr23",
+      "page": 5
+    },
+    {
+      "query": "emissions",
+      "content": "<chunk>\n# The Circularity-Climate Link: Enacted Globally, a Circular Economy Can Help Close the Emissions Gap\n\nThe report links resource use to greenhouse gas (GHG) emissions, stating that 70% of emissions originate from material handling and use.  The analysis maps GHG emissions and resource flows ",
+      "document": "cgr22",
+      "page": 5
+    },
+    {
+      "query": "emissions",
+      "content": "<chunk>\nThe report concludes with calls to action for governments and businesses.  For governments, key actions include:  leading the circular transition through smart policies and multilateral collaboration; shaping economic conditions to promote circularity (e.g.,  adjusting taxes and subsidies); ",
+      "document": "cgr25",
+      "page": 15
+    }
+  ],
+  "test_questions": {
+    "factual_questions": [
+      "What is the global circularity gap percentage?",
+      "What is the definition of circular economy?",
+      "How much waste is generated globally each year?",
+      "What are the main material flows in the circular economy?",
+      "What percentage of materials are recycled globally?",
+      "What is the carbon footprint of linear economic models?",
+      "Which countries have the highest circularity rates?"
+    ],
+    "comparison_questions": [
+      "How has the circularity gap changed from 2021 to 2025?",
+      "Compare waste management strategies between developed and developing countries",
+      "What is the difference between linear and circular economic models?",
+      "How do emissions compare between circular and linear economies?",
+      "Compare recycling rates across different regions",
+      "What are the differences in material consumption patterns over time?"
+    ],
+    "conceptual_questions": [
+      "Why is the circularity gap increasing despite sustainability efforts?",
+      "What are the main barriers to implementing circular economy principles?",
+      "How does the circular economy contribute to climate change mitigation?",
+      "What role does technology play in enabling circular economy transitions?",
+      "How do consumer behaviors impact the circularity gap?",
+      "What are the economic benefits of transitioning to a circular economy?",
+      "Why is international cooperation important for circular economy success?"
+    ]
+  }
+}
