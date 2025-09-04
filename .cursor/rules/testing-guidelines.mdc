@@ -1,0 +1,43 @@
+Every new feature or significant code change must be accompanied by comprehensive tests. This ensures code quality, maintainability, and prevents regressions.
+
+### Testing Strategy
+
+We employ a multi-layered testing strategy using `pytest`:
+
+1.  **Unit Tests**:
+    *   **Purpose**: To test individual functions or methods in isolation from their dependencies.
+    *   **Location**: Reside in `src/backend/tests/` with a structure that mirrors the application's structure (e.g., tests for `src/backend/chain/rag_pipeline.py` are in `src/backend/tests/chain/`).
+    *   **Implementation**:
+        *   **Mocking**: All external dependencies (APIs, databases, file system) must be mocked using `unittest.mock.patch` or `MagicMock`. This is crucial for isolating the unit of work and ensuring tests are fast and reliable.
+        *   **Fixtures**: Use `pytest` fixtures (in `conftest.py`) to set up reusable test objects, such as a mocked `RAGPipeline` instance. This keeps test functions clean and focused on their specific assertions.
+        *   **Assertions**: Assertions should be specific and test for expected return values, side effects (e.g., a method on a mock was called with specific arguments), and that the code handles edge cases gracefully.
+
+2.  **Integration Tests**:
+    *   **Purpose**: To test the interaction between different components of the application (e.g., the `RAGPipeline` interacting with a real ChromaDB instance).
+    *   **Location**: Can reside alongside unit tests, but should be clearly marked (e.g., with `@pytest.mark.integration`).
+    *   **Implementation**:
+        *   **Live Services**: May involve connecting to live services (like a test database).
+        *   **Assertions**: Focus on asserting the correctness of the data flow and interactions between components.
+
+3.  **End-to-End (E2E) Tests**:
+    *   **Purpose**: To test the entire application flow from start to finish, simulating real user scenarios.
+    *   **Location**: Can be in a separate `tests/e2e` directory.
+    *   **Implementation**:
+        *   **Real Data**: Should use a pre-populated, real-world-like dataset (e.g., after running the `ingest-pdfs` script).
+        *   **Live APIs**: Will make live API calls (e.g., to the Gemini API for generation).
+        *   **Assertions**: Assert the final output of the system (e.g., the generated answer contains expected information and sources).
+
+### Example Analysis (`test_storing.py`)
+
+The test `test_storing_chunks` in `src/backend/tests/chain/test_storing.py` is a good example of a unit test. It demonstrates:
+
+*   **Isolation**: It tests the `ingest_pdf` method without actually reading a PDF from the file system or making live API calls to Gemini.
+*   **Mocking**: It uses `patch.object` to mock `_extract_text_from_pdf` and `_summarize_document`. It also relies on the `mock_rag_pipeline` fixture from `conftest.py` to mock `genai.GenerativeModel` and `chromadb.PersistentClient`.
+*   **Fixtures**: It uses the `mock_rag_pipeline` fixture for setup.
+*   **Specific Assertions**: It asserts that `mock_collection_instance.add` was called once and that the `documents`, `metadatas`, and `ids` passed to it have the correct structure and content.
+
+### General Guidelines
+
+*   **Test Naming**: Test files should be named `test_*.py` and test functions `test_*`.
+*   **Makefile Integration**: For every new test file, add a corresponding `make` target in the `Makefile` and a shell script in the `make/` directory to run that specific test. This provides a consistent and easy way to run tests.
+*   **Run Tests Before Committing**: Always run all relevant tests before committing changes to ensure you haven't introduced any regressions.

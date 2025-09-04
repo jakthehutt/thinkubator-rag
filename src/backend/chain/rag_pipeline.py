@@ -3,51 +3,42 @@ import pypdf
 import google.generativeai as genai
 import chromadb
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-import logging # Re-add logging
+import logging
 import re
+
+from src.backend.chain.config import (
+    CHROMA_DB_PATH,
+    CHUNKING_PROMPT_PATH,
+    CHUNK_SUMMARY_PROMPT_PATH,
+    DOCUMENT_SUMMARY_PROMPT_PATH,
+    GENERATION_SYSTEM_PROMPT_PATH,
+    GEMINI_GENERATIVE_MODEL,
+    GEMINI_EMBEDDING_MODEL,
+    GEMINI_API_KEY,
+    DEFAULT_TOP_K_CHUNKS
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- Paths (Inlined for now to resolve import issues) ---
-BASE_DIR_RAG = os.path.dirname(os.path.abspath(__file__))
-PROMPT_DIR_RAG = os.path.join(BASE_DIR_RAG, "prompt")
-CHROMA_DB_PATH_RAG = os.path.join(BASE_DIR_RAG, "..", "..", "data", "processed", "chroma_db")
-
-CHUNKING_PROMPT_PATH_RAG = os.path.join(PROMPT_DIR_RAG, "chunking_prompt.txt")
-CHUNK_SUMMARY_PROMPT_PATH_RAG = os.path.join(PROMPT_DIR_RAG, "chunk_summary_prompt.txt")
-DOCUMENT_SUMMARY_PROMPT_PATH_RAG = os.path.join(PROMPT_DIR_RAG, "document_summary_prompt.txt")
-GENERATION_SYSTEM_PROMPT_PATH_RAG = os.path.join(PROMPT_DIR_RAG, "generation_system_prompt.txt")
-
-# --- Gemini Models (Inlined for now to resolve import issues) ---
-GEMINI_GENERATIVE_MODEL_RAG = "gemini-pro"
-GEMINI_EMBEDDING_MODEL_RAG = "models/embedding-001"
-
-# --- Other Config (Inlined for now to resolve import issues) ---
-DEFAULT_TOP_K_CHUNKS_RAG = 5
-
-# --- API Keys (Inlined for now to resolve import issues) ---
-GEMINI_API_KEY_RAG = os.getenv("GEMINI_API_KEY")
-
-
 class RAGPipeline:
     def __init__(self,
-                 chroma_path: str = CHROMA_DB_PATH_RAG,
-                 chunking_prompt_path: str = CHUNKING_PROMPT_PATH_RAG,
-                 chunk_summary_prompt_path: str = CHUNK_SUMMARY_PROMPT_PATH_RAG,
-                 document_summary_prompt_path: str = DOCUMENT_SUMMARY_PROMPT_PATH_RAG,
-                 generation_system_prompt_path: str = GENERATION_SYSTEM_PROMPT_PATH_RAG):
+                 chroma_path: str = CHROMA_DB_PATH,
+                 chunking_prompt_path: str = CHUNKING_PROMPT_PATH,
+                 chunk_summary_prompt_path: str = CHUNK_SUMMARY_PROMPT_PATH,
+                 document_summary_prompt_path: str = DOCUMENT_SUMMARY_PROMPT_PATH,
+                 generation_system_prompt_path: str = GENERATION_SYSTEM_PROMPT_PATH):
         
         # Initialize Gemini API if key is available
-        if GEMINI_API_KEY_RAG:
-            genai.configure(api_key=GEMINI_API_KEY_RAG)
+        if GEMINI_API_KEY:
+            genai.configure(api_key=GEMINI_API_KEY)
         else:
-            logging.error("GEMINI_API_KEY not found in environment variables. Please set it.")
+            logging.error("GEMINI_API_KEY not found in environment variables. Please set it. The pipeline will not function without it.")
             raise ValueError("GEMINI_API_KEY is not set.")
 
         self.chroma_client = chromadb.PersistentClient(path=chroma_path)
-        self.embedding_model = GoogleGenerativeAIEmbeddings(model=GEMINI_EMBEDDING_MODEL_RAG)
-        self.generative_model = genai.GenerativeModel(GEMINI_GENERATIVE_MODEL_RAG)
+        self.embedding_model = GoogleGenerativeAIEmbeddings(model=GEMINI_EMBEDDING_MODEL)
+        self.generative_model = genai.GenerativeModel(GEMINI_GENERATIVE_MODEL)
         
         self.collection = self.chroma_client.get_or_create_collection(
             name="rag_chunks",
@@ -189,7 +180,7 @@ class RAGPipeline:
             logging.error(f"Failed to add chunks to ChromaDB: {e}")
             raise
 
-    def _query_database(self, query_texts: list[str], n_results: int = DEFAULT_TOP_K_CHUNKS_RAG) -> dict:
+    def _query_database(self, query_texts: list[str], n_results: int = DEFAULT_TOP_K_CHUNKS) -> dict:
         """Retrieves the most relevant chunks from ChromaDB based on the query."""
         try:
             results = self.collection.query(
@@ -236,7 +227,7 @@ class RAGPipeline:
         
         return reranked_chunks
 
-    def retrieve(self, query: str, n_results: int = DEFAULT_TOP_K_CHUNKS_RAG) -> list[dict]:
+    def retrieve(self, query: str, n_results: int = DEFAULT_TOP_K_CHUNKS) -> list[dict]:
         try:
             transformed_query = self._pre_query_transformation(query)
             retrieved_results = self._query_database([transformed_query], n_results)
@@ -246,7 +237,7 @@ class RAGPipeline:
             logging.error(f"Error during retrieval for query \"{query}\": {e}")
             raise
 
-    def generate_answer(self, user_query: str, top_k_chunks: int = DEFAULT_TOP_K_CHUNKS_RAG) -> str:
+    def generate_answer(self, user_query: str, top_k_chunks: int = DEFAULT_TOP_K_CHUNKS) -> str:
         try:
             retrieved_chunks_info = self.retrieve(user_query, n_results=top_k_chunks)
 
@@ -271,18 +262,7 @@ class RAGPipeline:
             context_string = "\n\n".join(context_chunks)
             sources_string = "; ".join(sorted(list(source_references)))
 
-            full_prompt = f"""{self.generation_system_prompt}
-
-Document Summary: {document_summary}
-
-Retrieved Information:
-{context_string}
-
-Sources: {sources_string}
-
-User Request: {user_query}
-
-Answer:"""
+            full_prompt = f"""{self.generation_system_prompt}\n\nDocument Summary: {document_summary}\n\nRetrieved Information:\n{context_string}\n\nSources: {sources_string}\n\nUser Request: {user_query}\n\nAnswer:"""
 
             response = self.generative_model.generate_content(full_prompt)
             return response.text

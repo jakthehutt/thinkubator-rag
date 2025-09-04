@@ -8,3 +8,6 @@ langchain-openai
 pypdf
 langchain-google-genai
 pytest
+google-generativeai
+chromadb
+python-dotenv

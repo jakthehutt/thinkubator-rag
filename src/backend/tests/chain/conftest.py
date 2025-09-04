@@ -11,13 +11,7 @@ with patch.dict(os.environ, {"GEMINI_API_KEY": "dummy_api_key"}):
     sys.modules['langchain_google_genai'] = MagicMock()
     # sys.modules['pypdf'] = MagicMock() # Removed as _extract_text_from_pdf will be patched
 
-    # The rag_pipeline module should be importable directly from src/backend/chain
-    # To ensure this, we add src/backend/chain to sys.path
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    chain_dir = os.path.abspath(os.path.join(current_dir, '..', '..', 'chain'))
-    sys.path.insert(0, chain_dir)
-
-    from rag_pipeline import RAGPipeline
+    from src.backend.chain.rag_pipeline import RAGPipeline
 
     # Read actual prompt contents for setting RAGPipeline attributes in the fixture
     current_file_dir = os.path.dirname(os.path.abspath(__file__))
