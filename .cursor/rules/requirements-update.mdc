@@ -4,6 +4,7 @@
     This rule ensures that the `requirements.txt` file is kept up-to-date
     whenever new Python packages are introduced or existing ones are modified
     in the codebase.
+    Also add the version required for the package.
   </description>
   <trigger>
     <file_change pattern="**/*.py" />

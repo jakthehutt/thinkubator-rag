@@ -10,3 +10,4 @@ data/pdfs/
 data/processed/
 
 .env
+__pycache__/
