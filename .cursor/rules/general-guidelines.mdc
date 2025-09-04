@@ -1,0 +1,7 @@
+---
+description: |
+  1. Existing Cursor rules should be extended during the coding process to incorporate new insights or requirements.
+  2. Text within rules or generated content should only be deleted if explicitly requested.
+globs:
+alwaysApply: true
+---

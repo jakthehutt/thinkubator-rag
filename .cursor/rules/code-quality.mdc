@@ -1,0 +1,7 @@
+---
+description: |
+  1. All code must have clear, concise, and easy-to-understand descriptions.
+  2. Each module or component must include tests, implemented via a Makefile and a connecting shell script.
+globs:
+alwaysApply: true
+---
