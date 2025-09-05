@@ -1,0 +1,76 @@
+---
+alwaysApply: true
+---
+
+# Thinkubator RAG Project Overview
+
+## Project Description
+A Retrieval-Augmented Generation (RAG) system for circular economy and sustainability research, built with Next.js frontend and Python backend, deployed on Vercel.
+
+## Architecture
+- **Frontend**: Next.js 15.5.2 with TypeScript and Tailwind CSS
+- **Backend**: Python with FastAPI (local) / Serverless functions (Vercel)
+- **Database**: Supabase with pgvector for vector storage
+- **AI**: Google Gemini for embeddings and text generation
+- **Deployment**: Vercel with ultra-minimal Python functions
+
+## Key Components
+
+### Frontend ([src/frontend/](mdc:src/frontend/))
+- [src/frontend/src/app/page.tsx](mdc:src/frontend/src/app/page.tsx) - Main application page
+- [src/frontend/src/components/QueryInterface.tsx](mdc:src/frontend/src/components/QueryInterface.tsx) - Query input component
+- [src/frontend/src/components/ResultsDisplay.tsx](mdc:src/frontend/src/components/ResultsDisplay.tsx) - Results display component
+- [src/frontend/src/app/api/query/route.ts](mdc:src/frontend/src/app/api/query/route.ts) - API route for frontend-backend communication
+
+### Backend ([src/backend/](mdc:src/backend/))
+- [src/backend/chain/rag_pipeline.py](mdc:src/backend/chain/rag_pipeline.py) - Main RAG pipeline
+- [src/backend/chain/rag_pipeline_supabase.py](mdc:src/backend/chain/rag_pipeline_supabase.py) - Supabase-specific RAG pipeline
+- [src/backend/vector_store/supabase_vector_store.py](mdc:src/backend/vector_store/supabase_vector_store.py) - Vector database operations
+- [src/backend/storage/query_storage.py](mdc:src/backend/storage/query_storage.py) - Query session storage
+
+### Vercel Deployment
+- [src/frontend/api/python.py](mdc:src/frontend/api/python.py) - Ultra-minimal serverless function
+- [src/frontend/api/requirements.txt](mdc:src/frontend/api/requirements.txt) - Minimal dependencies (8 packages)
+- [src/frontend/vercel.json](mdc:src/frontend/vercel.json) - Vercel configuration
+- [src/frontend/next.config.ts](mdc:src/frontend/next.config.ts) - Next.js optimization
+
+## Data Processing
+- **Source**: PDF documents in [data/pdfs/](mdc:data/pdfs/)
+- **Processed**: JSON chunks in [data/processed/md/](mdc:data/processed/md/)
+- **Vector Storage**: Supabase document_embeddings table
+
+## Development Workflow
+
+### Local Development
+1. **Frontend**: `cd src/frontend && npm run dev`
+2. **Backend**: `python run_local.py`
+3. **Testing**: `make test_all`
+
+### Vercel Deployment
+1. **Push to main branch**: Automatic deployment
+2. **Environment Variables**: Set in Vercel dashboard
+3. **Function Size**: Optimized to stay under 250MB limit
+
+## Key Optimizations
+
+### Bundle Size Reduction
+- **Before**: 50+ packages, 250MB+ function size
+- **After**: 8 packages, well under 250MB limit
+- **Strategy**: Direct HTTP calls instead of heavy SDKs
+
+### Performance
+- **Frontend**: Turbopack for faster builds
+- **Backend**: Cached components and optimized queries
+- **Deployment**: Serverless functions with minimal cold start
+
+## Environment Variables
+- `GEMINI_API_KEY` - Google AI API key
+- `SUPABASE_URL` - Supabase project URL
+- `SUPABASE_ANON_KEY` - Supabase anonymous key
+- `VERCEL_URL` - Automatically set by Vercel
+
+## Testing Strategy
+- **Unit Tests**: Individual component testing
+- **Integration Tests**: RAG pipeline testing
+- **E2E Tests**: Complete workflow testing
+- **Performance Tests**: Response time and accuracy validation

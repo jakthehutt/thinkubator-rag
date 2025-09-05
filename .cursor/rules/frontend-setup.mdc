@@ -1,0 +1,89 @@
+---
+globs: src/frontend/**/*
+description: Frontend setup and development guidelines
+---
+
+# Frontend Setup and Development Guide
+
+## Project Structure
+The frontend is a Next.js 15.5.2 application located in [src/frontend/](mdc:src/frontend/).
+
+### Key Files
+- [src/frontend/package.json](mdc:src/frontend/package.json) - Dependencies and scripts
+- [src/frontend/next.config.ts](mdc:src/frontend/next.config.ts) - Next.js configuration
+- [src/frontend/vercel.json](mdc:src/frontend/vercel.json) - Vercel deployment configuration
+- [src/frontend/src/app/api/query/route.ts](mdc:src/frontend/src/app/api/query/route.ts) - API route for frontend-backend communication
+
+## Development Setup
+
+### Prerequisites
+- Node.js (version 18+)
+- npm or yarn
+
+### Installation
+```bash
+cd src/frontend
+npm install
+```
+
+### Development Server
+```bash
+npm run dev
+```
+Runs on `http://localhost:3000` with Turbopack for faster builds.
+
+### Environment Variables
+Create `.env.local` in `src/frontend/` with:
+```
+GEMINI_API_KEY=your_gemini_api_key
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+## API Communication
+
+### Environment Detection
+The frontend automatically detects environment:
+- **Local**: Calls `http://localhost:8000/query` (FastAPI backend)
+- **Vercel**: Calls `/api/python/query` (serverless function)
+
+### API Route Structure
+- [src/frontend/src/app/api/query/route.ts](mdc:src/frontend/src/app/api/query/route.ts) handles POST requests
+- Automatically routes to correct backend based on environment
+- Uses `VERCEL_URL` environment variable for reliable detection
+
+## Build and Deployment
+
+### Production Build
+```bash
+npm run build
+```
+
+### Key Dependencies
+- **Next.js 15.5.2** - React framework
+- **React 19.1.0** - UI library
+- **@heroicons/react** - Icon components
+- **Tailwind CSS** - Styling framework
+- **TypeScript** - Type safety
+
+### Bundle Optimization
+- Uses Turbopack for faster builds
+- Configured with `outputFileTracingExcludes` to exclude large files
+- Optimized for Vercel deployment
+
+## Best Practices
+
+### Code Organization
+- Components in [src/frontend/src/components/](mdc:src/frontend/src/components/)
+- API routes in [src/frontend/src/app/api/](mdc:src/frontend/src/app/api/)
+- Pages in [src/frontend/src/app/](mdc:src/frontend/src/app/)
+
+### Error Handling
+- Always handle API errors gracefully
+- Use proper TypeScript types
+- Implement loading states and error boundaries
+
+### Performance
+- Use dynamic imports for code splitting
+- Optimize images and assets
+- Minimize bundle size for faster loading
