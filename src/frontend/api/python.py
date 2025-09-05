@@ -1,80 +1,50 @@
 #!/usr/bin/env python3
 """
-Minimal Vercel Python serverless function for the RAG pipeline.
-Optimized to stay under 250MB size limit.
+Ultra-minimal Vercel Python serverless function for the RAG pipeline.
+Uses direct HTTP calls instead of heavy SDKs to stay under 250MB limit.
 """
 
 import os
-import sys
 import json
-import time
-from pathlib import Path
+import requests
+from mangum import Mangum
+from dotenv import load_dotenv
 
-# Add the project root to Python path
-project_root = Path(__file__).parent.parent.parent.absolute()
-sys.path.insert(0, str(project_root))
-
-# Import only essential modules
-from src.backend.vector_store.supabase_vector_store import SupabaseVectorStore
-from src.backend.storage.query_storage import QueryStorageService
-
-# Initialize components (this will be cached across requests)
-vector_store = None
-query_storage = None
-
-def get_vector_store():
-    """Get or initialize the vector store."""
-    global vector_store
-    
-    if vector_store is None:
-        try:
-            vector_store = SupabaseVectorStore()
-        except Exception as e:
-            raise Exception(f"Failed to initialize vector store: {str(e)}")
-    
-    return vector_store
-
-def get_query_storage():
-    """Get or initialize the query storage service."""
-    global query_storage
-    
-    if query_storage is None:
-        try:
-            query_storage = QueryStorageService()
-        except Exception as e:
-            raise Exception(f"Failed to initialize query storage: {str(e)}")
-    
-    return query_storage
+# Load environment variables
+load_dotenv()
 
 def generate_embedding(text):
-    """Generate embedding using Google Generative AI."""
+    """Generate embedding using direct Google AI API call."""
     try:
-        import google.generativeai as genai
-        
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
             raise Exception("GEMINI_API_KEY not configured")
         
-        genai.configure(api_key=api_key)
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent?key={api_key}"
         
-        # Use the embedding model
-        model = genai.EmbeddingModel('models/embedding-001')
-        result = model.embed_content(text)
-        return result['embedding']
+        payload = {
+            "content": {
+                "parts": [{"text": text}]
+            }
+        }
+        
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        
+        result = response.json()
+        return result['embedding']['values']
         
     except Exception as e:
         raise Exception(f"Failed to generate embedding: {str(e)}")
 
 def generate_answer(query, retrieved_chunks):
-    """Generate answer using Google Generative AI."""
+    """Generate answer using direct Google AI API call."""
     try:
-        import google.generativeai as genai
-        
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
             raise Exception("GEMINI_API_KEY not configured")
         
-        genai.configure(api_key=api_key)
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
         
         # Prepare context from retrieved chunks
         context = "\n\n".join([chunk['document'] for chunk in retrieved_chunks])
@@ -87,14 +57,102 @@ Context:
 
 Please provide a comprehensive answer based on the context provided. If the context doesn't contain enough information to answer the question, please say so."""
         
-        # Generate response
-        model = genai.GenerativeModel('gemini-pro')
-        response = model.generate_content(prompt)
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }]
+        }
         
-        return response.text
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        
+        result = response.json()
+        return result['candidates'][0]['content']['parts'][0]['text']
         
     except Exception as e:
         raise Exception(f"Failed to generate answer: {str(e)}")
+
+def search_supabase(query_embedding, k=5):
+    """Search Supabase using direct HTTP calls."""
+    try:
+        supabase_url = os.environ.get("SUPABASE_URL")
+        supabase_key = os.environ.get("SUPABASE_ANON_KEY")
+        
+        if not supabase_url or not supabase_key:
+            raise Exception("Supabase credentials not configured")
+        
+        # Convert embedding to string format for Supabase
+        embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
+        
+        url = f"{supabase_url}/rest/v1/rpc/match_documents"
+        
+        headers = {
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "query_embedding": embedding_str,
+            "match_threshold": 0.7,
+            "match_count": k
+        }
+        
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        
+        results = response.json()
+        
+        # Format results to match expected structure
+        formatted_results = []
+        for result in results:
+            formatted_results.append({
+                "content": result.get("content", ""),
+                "metadata": result.get("metadata", {})
+            })
+        
+        return formatted_results
+        
+    except Exception as e:
+        raise Exception(f"Failed to search Supabase: {str(e)}")
+
+def store_query_session(query, answer, chunks, processing_time_ms):
+    """Store query session in Supabase using direct HTTP calls."""
+    try:
+        supabase_url = os.environ.get("SUPABASE_URL")
+        supabase_key = os.environ.get("SUPABASE_ANON_KEY")
+        
+        if not supabase_url or not supabase_key:
+            return None  # Don't fail if storage is not available
+        
+        url = f"{supabase_url}/rest/v1/query_sessions"
+        
+        headers = {
+            "apikey": supabase_key,
+            "Authorization": f"Bearer {supabase_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "query": query,
+            "answer": answer,
+            "chunks": json.dumps(chunks),
+            "processing_time_ms": processing_time_ms,
+            "metadata": json.dumps({
+                "num_retrieved_chunks": len(chunks),
+                "pipeline_info": "ultra_minimal_vercel_function"
+            })
+        }
+        
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        
+        result = response.json()
+        return result[0]['id'] if result else None
+        
+    except Exception as e:
+        print(f"Warning: Failed to store query session: {e}")
+        return None
 
 def handler(request, context):
     """Vercel serverless function handler."""
@@ -107,13 +165,13 @@ def handler(request, context):
                 return {
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json'},
-                    'body': json.dumps({"status": "healthy", "message": "Python API is running"})
+                    'body': json.dumps({"status": "healthy", "message": "Ultra-minimal Python API is running"})
                 }
             else:
                 return {
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json'},
-                    'body': json.dumps({"message": "Thinkubator RAG Python API is running"})
+                    'body': json.dumps({"message": "Thinkubator RAG Ultra-Minimal Python API is running"})
                 }
         
         elif request.get('httpMethod') == 'POST':
@@ -133,19 +191,15 @@ def handler(request, context):
                         'body': json.dumps({"detail": "Query is required"})
                     }
                 
+                import time
                 start_time = time.time()
-                session_id = None
                 
                 try:
-                    # Get components
-                    vector_store = get_vector_store()
-                    storage = get_query_storage()
-                    
                     # Generate query embedding
                     query_embedding = generate_embedding(query)
                     
                     # Retrieve similar documents
-                    similar_docs = vector_store.similarity_search(query_embedding, k=5)
+                    similar_docs = search_supabase(query_embedding, k=5)
                     
                     if not similar_docs:
                         return {
@@ -159,42 +213,21 @@ def handler(request, context):
                             })
                         }
                     
-                    # Format chunks for response
-                    formatted_chunks = []
-                    for doc in similar_docs:
-                        formatted_chunks.append({
-                            "document": doc.content,
-                            "metadata": doc.metadata
-                        })
-                    
                     # Generate answer
-                    answer = generate_answer(query, formatted_chunks)
+                    answer = generate_answer(query, similar_docs)
                     
                     # Calculate processing time
                     processing_time_ms = int((time.time() - start_time) * 1000)
                     
-                    # Store the query session in Supabase
-                    try:
-                        session_id = storage.store_query_session(
-                            query=query,
-                            answer=answer,
-                            chunks=formatted_chunks,
-                            processing_time_ms=processing_time_ms,
-                            metadata={
-                                "num_retrieved_chunks": len(similar_docs),
-                                "pipeline_info": "minimal_vercel_function"
-                            }
-                        )
-                    except Exception as storage_error:
-                        # Log storage error but don't fail the request
-                        print(f"Warning: Failed to store query session: {storage_error}")
+                    # Store the query session
+                    session_id = store_query_session(query, answer, similar_docs, processing_time_ms)
                     
                     return {
                         'statusCode': 200,
                         'headers': {'Content-Type': 'application/json'},
                         'body': json.dumps({
                             "answer": answer,
-                            "chunks": formatted_chunks,
+                            "chunks": similar_docs,
                             "session_id": session_id,
                             "processing_time_ms": processing_time_ms
                         })
@@ -227,3 +260,6 @@ def handler(request, context):
             'headers': {'Content-Type': 'application/json'},
             'body': json.dumps({"detail": f"Internal server error: {str(e)}"})
         }
+
+# Vercel handler
+app = Mangum(handler)

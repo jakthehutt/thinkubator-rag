@@ -1,21 +1,7 @@
-# Minimal requirements for Vercel Python function
-# Only include essential dependencies to stay under 250MB limit
+# Ultra-minimal requirements for Vercel Python function
+# Using direct HTTP calls instead of heavy SDKs to stay under 250MB limit
 
-# Core dependencies
-pydantic
+# HTTP requests only
+requests
 python-dotenv
-
-# Supabase and database
-supabase
-psycopg2-binary
-pgvector
-
-# Google AI
-google-generativeai
-langchain-google-genai
-
-# Vector operations
-numpy
-
-# ASGI handler for Vercel
 mangum
