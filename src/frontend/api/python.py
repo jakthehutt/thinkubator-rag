@@ -1,41 +1,38 @@
 #!/usr/bin/env python3
 """
-Vercel Python serverless function for the RAG pipeline.
-This is a simplified version that works with Vercel's serverless environment.
+Minimal Vercel Python serverless function for the RAG pipeline.
+Optimized to stay under 250MB size limit.
 """
 
 import os
 import sys
 import json
+import time
 from pathlib import Path
 
 # Add the project root to Python path
 project_root = Path(__file__).parent.parent.parent.absolute()
 sys.path.insert(0, str(project_root))
 
-# Import your RAG pipeline and storage
-from src.backend.chain.rag_pipeline_supabase import RAGPipelineSupabase
+# Import only essential modules
+from src.backend.vector_store.supabase_vector_store import SupabaseVectorStore
 from src.backend.storage.query_storage import QueryStorageService
 
-# Initialize the RAG pipeline and query storage (this will be cached across requests)
-rag_pipeline = None
+# Initialize components (this will be cached across requests)
+vector_store = None
 query_storage = None
 
-def get_rag_pipeline():
-    """Get or initialize the RAG pipeline."""
-    global rag_pipeline
+def get_vector_store():
+    """Get or initialize the vector store."""
+    global vector_store
     
-    if rag_pipeline is None:
-        api_key = os.environ.get("GEMINI_API_KEY")
-        if not api_key:
-            raise Exception("GEMINI_API_KEY not configured")
-        
+    if vector_store is None:
         try:
-            rag_pipeline = RAGPipelineSupabase(api_key=api_key)
+            vector_store = SupabaseVectorStore()
         except Exception as e:
-            raise Exception(f"Failed to initialize RAG pipeline: {str(e)}")
+            raise Exception(f"Failed to initialize vector store: {str(e)}")
     
-    return rag_pipeline
+    return vector_store
 
 def get_query_storage():
     """Get or initialize the query storage service."""
@@ -49,9 +46,58 @@ def get_query_storage():
     
     return query_storage
 
+def generate_embedding(text):
+    """Generate embedding using Google Generative AI."""
+    try:
+        import google.generativeai as genai
+        
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise Exception("GEMINI_API_KEY not configured")
+        
+        genai.configure(api_key=api_key)
+        
+        # Use the embedding model
+        model = genai.EmbeddingModel('models/embedding-001')
+        result = model.embed_content(text)
+        return result['embedding']
+        
+    except Exception as e:
+        raise Exception(f"Failed to generate embedding: {str(e)}")
+
+def generate_answer(query, retrieved_chunks):
+    """Generate answer using Google Generative AI."""
+    try:
+        import google.generativeai as genai
+        
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise Exception("GEMINI_API_KEY not configured")
+        
+        genai.configure(api_key=api_key)
+        
+        # Prepare context from retrieved chunks
+        context = "\n\n".join([chunk['document'] for chunk in retrieved_chunks])
+        
+        # Create prompt
+        prompt = f"""Based on the following context about circular economy and sustainability, please answer the question: {query}
+
+Context:
+{context}
+
+Please provide a comprehensive answer based on the context provided. If the context doesn't contain enough information to answer the question, please say so."""
+        
+        # Generate response
+        model = genai.GenerativeModel('gemini-pro')
+        response = model.generate_content(prompt)
+        
+        return response.text
+        
+    except Exception as e:
+        raise Exception(f"Failed to generate answer: {str(e)}")
+
 def handler(request, context):
     """Vercel serverless function handler."""
-    import time
     
     try:
         # Parse the request
@@ -91,25 +137,41 @@ def handler(request, context):
                 session_id = None
                 
                 try:
-                    pipeline = get_rag_pipeline()
+                    # Get components
+                    vector_store = get_vector_store()
                     storage = get_query_storage()
                     
-                    # Retrieve chunks
-                    retrieved_chunks = pipeline.retrieve(query)
+                    # Generate query embedding
+                    query_embedding = generate_embedding(query)
                     
-                    # Generate answer
-                    answer = pipeline.generate_answer(query)
+                    # Retrieve similar documents
+                    similar_docs = vector_store.similarity_search(query_embedding, k=5)
                     
-                    # Calculate processing time
-                    processing_time_ms = int((time.time() - start_time) * 1000)
+                    if not similar_docs:
+                        return {
+                            'statusCode': 200,
+                            'headers': {'Content-Type': 'application/json'},
+                            'body': json.dumps({
+                                "answer": "I do not have enough information to answer your question. No relevant documents were found.",
+                                "chunks": [],
+                                "session_id": None,
+                                "processing_time_ms": int((time.time() - start_time) * 1000)
+                            })
+                        }
                     
                     # Format chunks for response
                     formatted_chunks = []
-                    for chunk_info in retrieved_chunks:
+                    for doc in similar_docs:
                         formatted_chunks.append({
-                            "document": chunk_info['document'],
-                            "metadata": chunk_info['metadata']
+                            "document": doc.content,
+                            "metadata": doc.metadata
                         })
+                    
+                    # Generate answer
+                    answer = generate_answer(query, formatted_chunks)
+                    
+                    # Calculate processing time
+                    processing_time_ms = int((time.time() - start_time) * 1000)
                     
                     # Store the query session in Supabase
                     try:
@@ -119,8 +181,8 @@ def handler(request, context):
                             chunks=formatted_chunks,
                             processing_time_ms=processing_time_ms,
                             metadata={
-                                "num_retrieved_chunks": len(retrieved_chunks),
-                                "pipeline_info": pipeline.get_pipeline_info()
+                                "num_retrieved_chunks": len(similar_docs),
+                                "pipeline_info": "minimal_vercel_function"
                             }
                         )
                     except Exception as storage_error:

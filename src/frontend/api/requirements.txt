@@ -1,22 +1,21 @@
-fastapi
-uvicorn
+# Minimal requirements for Vercel Python function
+# Only include essential dependencies to stay under 250MB limit
+
+# Core dependencies
 pydantic
-python-multipart
-langchain
-langchain-community
-langchain-openai
-pydantic
-langchain-google-genai
-pytest
-pytest-asyncio
-google-generativeai
-chromadb
 python-dotenv
-streamlit
-mangum
+
+# Supabase and database
 supabase
 psycopg2-binary
 pgvector
-vecs
+
+# Google AI
+google-generativeai
+langchain-google-genai
+
+# Vector operations
 numpy
-sqlalchemy
+
+# ASGI handler for Vercel
+mangum
