@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "framework": "nextjs",
+  "buildCommand": "cd src/frontend && next build",
+  "outputDirectory": "src/frontend/.next",
   "builds": [
     {
       "src": "src/frontend/package.json",
