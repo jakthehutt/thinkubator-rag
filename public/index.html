@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thinkubator RAG Pipeline Explorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px 30px;
+        }
+        
+        .query-section {
+            margin-bottom: 40px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        #queryInput {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        #queryInput:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        #submitBtn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        #submitBtn:hover {
+            transform: translateY(-2px);
+        }
+        
+        #submitBtn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results {
+            display: none;
+        }
+        
+        .answer-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-left: 5px solid #27ae60;
+        }
+        
+        .answer-section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        .answer-text {
+            line-height: 1.8;
+            font-size: 1.1em;
+            color: #34495e;
+        }
+        
+        .chunks-section {
+            margin-top: 30px;
+        }
+        
+        .chunks-section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.6em;
+        }
+        
+        .chunk {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        
+        .chunk-header {
+            background: #ecf0f1;
+            padding: 15px 20px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #2c3e50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chunk-content {
+            padding: 20px;
+            display: none;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .chunk-text {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            white-space: pre-wrap;
+        }
+        
+        .chunk-metadata {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .error {
+            background: #e74c3c;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .toggle-icon {
+            transition: transform 0.3s ease;
+        }
+        
+        .toggle-icon.rotated {
+            transform: rotate(180deg);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Thinkubator RAG Pipeline Explorer</h1>
+            <p>Query the circular economy knowledge base powered by AI</p>
+        </div>
+        
+        <div class="content">
+            <div class="query-section">
+                <div class="input-group">
+                    <input type="text" id="queryInput" placeholder="Ask about the circular economy, sustainability, or environmental topics..." value="What is the circularity gap?">
+                    <button id="submitBtn">Generate Answer</button>
+                </div>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Retrieving information and generating answer...</p>
+            </div>
+            
+            <div class="results" id="results">
+                <div class="answer-section">
+                    <h2>Answer</h2>
+                    <div class="answer-text" id="answerText"></div>
+                </div>
+                
+                <div class="chunks-section">
+                    <h2>Retrieved Sources</h2>
+                    <p style="margin-bottom: 20px; color: #7f8c8d;">These are the document excerpts that were used to generate the answer above.</p>
+                    <div id="chunksContainer"></div>
+                </div>
+            </div>
+            
+            <div class="error" id="error" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const queryInput = document.getElementById('queryInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const error = document.getElementById('error');
+        const answerText = document.getElementById('answerText');
+        const chunksContainer = document.getElementById('chunksContainer');
+
+        async function submitQuery() {
+            const query = queryInput.value.trim();
+            
+            if (!query) {
+                showError('Please enter a query');
+                return;
+            }
+
+            // Show loading state
+            loading.style.display = 'block';
+            results.style.display = 'none';
+            error.style.display = 'none';
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Generating...';
+
+            try {
+                const response = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: query })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                displayResults(data);
+
+            } catch (err) {
+                showError(`Failed to get answer: ${err.message}`);
+            } finally {
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Generate Answer';
+            }
+        }
+
+        function displayResults(data) {
+            // Display answer
+            answerText.innerHTML = data.answer.replace(/\n/g, '<br>');
+
+            // Display chunks
+            chunksContainer.innerHTML = '';
+            data.chunks.forEach((chunk, index) => {
+                const chunkElement = createChunkElement(chunk, index);
+                chunksContainer.appendChild(chunkElement);
+            });
+
+            results.style.display = 'block';
+        }
+
+        function createChunkElement(chunk, index) {
+            const chunkDiv = document.createElement('div');
+            chunkDiv.className = 'chunk';
+
+            const metadata = chunk.metadata;
+            const source = metadata.document_name || 'Unknown source';
+            const page = metadata.page_in_document || 'N/A';
+
+            chunkDiv.innerHTML = `
+                <div class="chunk-header" onclick="toggleChunk(this)">
+                    <span>Chunk ${index + 1} - Source: ${source}, Page: ${page}</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="chunk-content">
+                    <div class="chunk-text">${chunk.document}</div>
+                    <div class="chunk-metadata">
+                        <strong>Metadata:</strong><br>
+                        ${JSON.stringify(metadata, null, 2)}
+                    </div>
+                </div>
+            `;
+
+            return chunkDiv;
+        }
+
+        function toggleChunk(header) {
+            const content = header.nextElementSibling;
+            const icon = header.querySelector('.toggle-icon');
+            
+            if (content.style.display === 'none' || content.style.display === '') {
+                content.style.display = 'block';
+                icon.classList.add('rotated');
+            } else {
+                content.style.display = 'none';
+                icon.classList.remove('rotated');
+            }
+        }
+
+        function showError(message) {
+            error.textContent = message;
+            error.style.display = 'block';
+            results.style.display = 'none';
+        }
+
+        // Event listeners
+        submitBtn.addEventListener('click', submitQuery);
+        queryInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                submitQuery();
+            }
+        });
+
+        // Test API connection on load
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch('/api/health');
+                if (!response.ok) {
+                    showError('API is not responding. Please check your deployment configuration.');
+                }
+            } catch (err) {
+                console.warn('Could not connect to API:', err);
+            }
+        });
+    </script>
+</body>
+</html>
