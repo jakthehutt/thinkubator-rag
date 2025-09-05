@@ -33,7 +33,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # sys.path.insert(0, project_root) # Removed
 
 # Rely on direct import now that package structure should be resolvable by python path
-from src.backend.chain.rag_pipeline import RAGPipeline
+from src.backend.chain.rag_pipeline_supabase import RAGPipelineSupabase
 from src.backend.chain.config import (
     CHROMA_DB_PATH,
 )
@@ -96,7 +96,7 @@ def save_processed_document_to_json(document_name: str, full_text: str, page_tex
     
     logging.info(f"💾 Saved processed document data to {json_path}")
 
-def ingest_all_pdfs(pdf_directory: str = "./data/pdfs", chroma_db_path: str = CHROMA_DB_PATH):
+def ingest_all_pdfs(pdf_directory: str = "./data/pdfs", api_key: str = None):
     """
     Ingest all PDFs from the specified directory using the RAGPipeline class.
     The RAGPipeline.ingest_pdf method already handles all the processing.
@@ -110,10 +110,9 @@ def ingest_all_pdfs(pdf_directory: str = "./data/pdfs", chroma_db_path: str = CH
         raise ValueError("GEMINI_API_KEY is required for ingestion.")
     
     logging.info("API key found, initializing pipeline...")
-    pipeline = RAGPipeline(api_key=api_key, chroma_path=chroma_db_path)
+    pipeline = RAGPipelineSupabase(api_key=api_key)
     
-    # Ensure directories exist
-    os.makedirs(chroma_db_path, exist_ok=True)
+    # Note: No longer creating ChromaDB directories as we use Supabase
     if not os.path.exists(pdf_directory):
         logging.error(f"PDF directory not found: {pdf_directory}")
         raise FileNotFoundError(f"PDF directory not found: {pdf_directory}")

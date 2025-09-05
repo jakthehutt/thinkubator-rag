@@ -91,7 +91,7 @@ class SupabaseVectorStore:
                     logger.info(f"Creating {self.table_name} table...")
                     cursor.execute(f"""
                         CREATE TABLE IF NOT EXISTS {self.table_name} (
-                            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                            id TEXT PRIMARY KEY,
                             content TEXT NOT NULL,
                             embedding vector({self.embedding_dimension}),
                             metadata JSONB DEFAULT '{{}}',
@@ -160,8 +160,9 @@ class SupabaseVectorStore:
                         if len(embedding) != self.embedding_dimension:
                             raise ValueError(f"Embedding dimension mismatch: expected {self.embedding_dimension}, got {len(embedding)}")
                         
+                        # Ensure ID is a string (not UUID)
                         data_to_insert.append((
-                            doc_id,
+                            str(doc_id),
                             doc,
                             embedding,
                             json.dumps(metadata)

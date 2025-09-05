@@ -184,6 +184,18 @@ class ChromaToSupabaseMigrator:
             try:
                 # Convert ChromaDB metadata format to Supabase format
                 converted_metadatas = []
+                converted_embeddings = []
+                
+                # Convert embeddings from numpy arrays to lists
+                for embedding in batch_embeddings:
+                    if hasattr(embedding, 'tolist'):
+                        # It's a numpy array
+                        converted_embeddings.append(embedding.tolist())
+                    else:
+                        # It's already a list
+                        converted_embeddings.append(list(embedding))
+                
+                # Convert metadata
                 for meta in batch_metas:
                     converted_meta = {}
                     for key, value in meta.items():
@@ -197,7 +209,7 @@ class ChromaToSupabaseMigrator:
                 # Store batch in Supabase
                 batch_result_ids = self.supabase_store.add_documents(
                     documents=batch_docs,
-                    embeddings=batch_embeddings,
+                    embeddings=converted_embeddings,
                     metadatas=converted_metadatas,
                     ids=batch_ids
                 )

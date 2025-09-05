@@ -19,13 +19,13 @@ else:
 # Add the project root to the path, so 'from src...' works.
 sys.path.insert(0, project_root)
 
-from src.backend.chain.rag_pipeline import RAGPipeline
+from src.backend.chain.rag_pipeline_supabase import RAGPipelineSupabase
 # from src.backend.chain.config import GEMINI_API_KEY # No longer needed, handled in pipeline
 
 def main():
     st.set_page_config(page_title="Thinkubator RAG Pipeline Explorer", layout="wide")
 
-    st.title("Thinkubator RAG Pipeline Explorer")
+    st.title("Thinkubator RAG Pipeline Explorer (Supabase-Powered)")
 
     env_api_key = os.environ.get("GEMINI_API_KEY")
     if not env_api_key:
@@ -35,7 +35,7 @@ def main():
     if 'rag_pipeline' not in st.session_state or st.session_state.get('api_key') != env_api_key:
         with st.spinner("Initializing RAG Pipeline..."):
             try:
-                pipeline = RAGPipeline(api_key=env_api_key)
+                pipeline = RAGPipelineSupabase(api_key=env_api_key)
                 st.session_state.rag_pipeline = pipeline
                 st.session_state.api_key = env_api_key
                 st.sidebar.success("Pipeline Initialized!")
@@ -44,7 +44,8 @@ def main():
                 st.stop()
     
     st.markdown("""
-    This application allows you to test and visualize the different components of the RAG (Retrieval-Augmented Generation) pipeline. 
+    This application allows you to test and visualize the different components of the RAG (Retrieval-Augmented Generation) pipeline.
+    Now powered by **Supabase** with cloud-native vector storage and PostgreSQL backend!
     """)
 
     # Only show the query interface if the pipeline is ready

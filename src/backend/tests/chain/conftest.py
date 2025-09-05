@@ -38,7 +38,7 @@ def mock_rag_pipeline():
                 mock_embeddings.return_value = mock_embedding_instance
                 
                 # Import and create RAG pipeline with a test API key
-                from src.backend.chain.rag_pipeline import RAGPipeline
-                pipeline = RAGPipeline(api_key="test_api_key")
+                from src.backend.chain.rag_pipeline_supabase import RAGPipelineSupabase
+                pipeline = RAGPipelineSupabase(api_key="test_api_key")
                 
                 yield pipeline, mock_gen_model, mock_collection
