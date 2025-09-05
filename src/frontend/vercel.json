@@ -7,14 +7,14 @@
       "use": "@vercel/next"
     },
     {
-      "src": "api/python.py",
+      "src": "api/python/index.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/api/python/(.*)",
-      "dest": "api/python.py"
+      "dest": "api/python/index.py"
     },
     {
       "src": "/(.*)",
