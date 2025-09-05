@@ -88,14 +88,10 @@ class SupabaseVectorStore:
                     logger.info("Enabling pgvector extension...")
                     cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
                     
-                    # Drop existing table if it has wrong schema and recreate
+                    # Check if table exists and create if it doesn't
                     logger.info(f"Ensuring {self.table_name} table has correct schema...")
-                    cursor.execute(f"DROP TABLE IF EXISTS {self.table_name};")
-                    
-                    # Create the embeddings table with correct schema
-                    logger.info(f"Creating {self.table_name} table...")
                     cursor.execute(f"""
-                        CREATE TABLE {self.table_name} (
+                        CREATE TABLE IF NOT EXISTS {self.table_name} (
                             id TEXT PRIMARY KEY,
                             content TEXT NOT NULL,
                             embedding vector({self.embedding_dimension}),
