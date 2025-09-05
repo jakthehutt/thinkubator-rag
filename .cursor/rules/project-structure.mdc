@@ -84,6 +84,15 @@ src/backend/
 └── run_local.py          ← Local development server
 ```
 
+### ❌ NEVER CREATE THESE ROOT-LEVEL DUPLICATES:
+- `/api/` (old FastAPI backend - now obsolete)
+- `/components/` (should be in frontend/src/components/)
+- `/app/` (should be in frontend/src/app/)
+
+### ✅ Correct API Architecture:
+- **Vercel Functions**: [src/frontend/api/](mdc:src/frontend/api/) - Python serverless functions
+- **Next.js API Routes**: [src/frontend/src/app/api/](mdc:src/frontend/src/app/api/) - TypeScript API routes
+
 ## Prevention Rules
 
 ### 1. Before Creating Directories
