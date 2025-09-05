@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000'
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    // Forward the request to the FastAPI backend
-    const response = await fetch(`${API_BASE_URL}/query`, {
+    // In production (Vercel), the Python API is deployed as a serverless function
+    // In development, we need to call the local backend
+    const isProduction = process.env.NODE_ENV === 'production'
+    const apiUrl = isProduction 
+      ? '/api/python/query' // Vercel will route this to the Python function
+      : 'http://localhost:8000/query' // Local development
+    
+    console.log(`Calling API at: ${apiUrl}`)
+    
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
