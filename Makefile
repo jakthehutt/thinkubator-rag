@@ -24,5 +24,11 @@ test-all:
 test-frontend:
 	@bash make/test_frontend.sh
 
+test-supabase:
+	@bash make/test_supabase.sh
+
+test-api:
+	@bash make/test_api.sh
+
 run-frontend:
-	@python -m streamlit run src/frontend/app.py
+	@cd src/frontend && npm run dev

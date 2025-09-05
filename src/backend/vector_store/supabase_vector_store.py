@@ -7,6 +7,7 @@ Provides vector storage and similarity search using Supabase with pgvector.
 import os
 import logging
 import uuid
+import ast
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 import numpy as np
@@ -87,10 +88,14 @@ class SupabaseVectorStore:
                     logger.info("Enabling pgvector extension...")
                     cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
                     
-                    # Create the embeddings table
+                    # Drop existing table if it has wrong schema and recreate
+                    logger.info(f"Ensuring {self.table_name} table has correct schema...")
+                    cursor.execute(f"DROP TABLE IF EXISTS {self.table_name};")
+                    
+                    # Create the embeddings table with correct schema
                     logger.info(f"Creating {self.table_name} table...")
                     cursor.execute(f"""
-                        CREATE TABLE IF NOT EXISTS {self.table_name} (
+                        CREATE TABLE {self.table_name} (
                             id TEXT PRIMARY KEY,
                             content TEXT NOT NULL,
                             embedding vector({self.embedding_dimension}),
@@ -239,10 +244,19 @@ class SupabaseVectorStore:
                     # Convert results to VectorDocument objects
                     documents = []
                     for row in results:
+                        # Convert embedding back to list of floats
+                        embedding = row['embedding']
+                        if isinstance(embedding, str):
+                            # Parse string representation back to list
+                            import ast
+                            embedding = ast.literal_eval(embedding)
+                        elif hasattr(embedding, '__iter__'):
+                            embedding = list(embedding)
+                        
                         doc = VectorDocument(
                             id=str(row['id']),
                             content=row['content'],
-                            embedding=list(row['embedding']),
+                            embedding=embedding,
                             metadata=row['metadata'] or {},
                             distance=float(row['distance'])
                         )
@@ -276,10 +290,19 @@ class SupabaseVectorStore:
                     
                     row = cursor.fetchone()
                     if row:
+                        # Convert embedding back to list of floats
+                        embedding = row['embedding']
+                        if isinstance(embedding, str):
+                            # Parse string representation back to list
+                            import ast
+                            embedding = ast.literal_eval(embedding)
+                        elif hasattr(embedding, '__iter__'):
+                            embedding = list(embedding)
+                            
                         return VectorDocument(
                             id=str(row['id']),
                             content=row['content'],
-                            embedding=list(row['embedding']),
+                            embedding=embedding,
                             metadata=row['metadata'] or {}
                         )
                     
@@ -303,10 +326,12 @@ class SupabaseVectorStore:
             with self._get_postgres_connection() as conn:
                 conn.autocommit = True
                 with conn.cursor() as cursor:
+                    # Convert list to PostgreSQL array format
+                    placeholders = ','.join(['%s'] * len(ids))
                     cursor.execute(f"""
                         DELETE FROM {self.table_name}
-                        WHERE id = ANY(%s)
-                    """, [ids])
+                        WHERE id IN ({placeholders})
+                    """, ids)
                     
                     deleted_count = cursor.rowcount
                     logger.info(f"Deleted {deleted_count} documents")

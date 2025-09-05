@@ -4,7 +4,7 @@ import os
 # from conftest import PROJECT_ROOT # No longer needed
 
 def test_storing_chunks(mock_rag_pipeline):
-    pipeline, mock_gen_model_instance, mock_collection_instance = mock_rag_pipeline
+    pipeline, mock_gen_model_instance, mock_vector_store_instance = mock_rag_pipeline
 
     # The actual text that would be extracted from the mock_pdf_file
     extracted_text = (
@@ -31,12 +31,13 @@ def test_storing_chunks(mock_rag_pipeline):
             general_meta = {"category": "test"}
             pipeline.ingest_pdf("dummy_path.pdf", document_name, general_metadata=general_meta)
 
-            mock_collection_instance.add.assert_called_once()
-            args, kwargs = mock_collection_instance.add.call_args
+            mock_vector_store_instance.add_documents.assert_called_once()
+            args, kwargs = mock_vector_store_instance.add_documents.call_args
 
             assert "documents" in kwargs
             assert "metadatas" in kwargs
             assert "ids" in kwargs
+            assert "embeddings" in kwargs
 
             assert len(kwargs["documents"]) == 2
             assert kwargs["documents"][0] == "<chunk>This is a meaningful section about document structure.</chunk>"
@@ -48,7 +49,7 @@ def test_storing_chunks(mock_rag_pipeline):
             # Check flattened metadata (now prefixed with meta_)
             assert kwargs["metadatas"][0]["meta_category"] == "test"
             assert kwargs["metadatas"][0]["page_in_document"] == 1
-            assert kwargs["metadatas"][0]["page_approximation"] == "true"
+            assert kwargs["metadatas"][0]["page_approximation"] == True
             # Check that created_at timestamp is present
             assert "created_at" in kwargs["metadatas"][0]
             assert kwargs["metadatas"][0]["created_at"] is not None

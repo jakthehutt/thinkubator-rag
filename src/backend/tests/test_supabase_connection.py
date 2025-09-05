@@ -137,6 +137,8 @@ class TestSupabaseConnection:
             # If we get a permissions error, that's also OK - means connection works
             if "permission denied" in str(e).lower():
                 pass  # Expected for some operations
+            elif "could not find the table" in str(e).lower():
+                pass  # Expected - table doesn't exist, but connection works
             else:
                 pytest.fail(f"Unexpected error in Supabase operations: {e}")
 
