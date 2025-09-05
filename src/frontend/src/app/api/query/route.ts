@@ -14,8 +14,8 @@ export async function POST(request: NextRequest) {
     
     let apiUrl: string
     if (isVercel) {
-      // On Vercel, use relative URL (more reliable than absolute)
-      apiUrl = '/api/python/query'
+      // On Vercel, construct absolute URL from the incoming request
+      apiUrl = new URL('/api/python/query', request.url).toString()
     } else {
       // Local development
       apiUrl = 'http://localhost:8000/query'
