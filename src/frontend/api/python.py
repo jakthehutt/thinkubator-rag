@@ -7,7 +7,7 @@ Uses direct HTTP calls instead of heavy SDKs to stay under 250MB limit.
 import os
 import json
 import requests
-from mangum import Mangum
+import time
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -47,7 +47,7 @@ def generate_answer(query, retrieved_chunks):
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
         
         # Prepare context from retrieved chunks
-        context = "\n\n".join([chunk['document'] for chunk in retrieved_chunks])
+        context = "\n\n".join([chunk['content'] for chunk in retrieved_chunks])
         
         # Create prompt
         prompt = f"""Based on the following context about circular economy and sustainability, please answer the question: {query}
@@ -154,97 +154,88 @@ def store_query_session(query, answer, chunks, processing_time_ms):
         print(f"Warning: Failed to store query session: {e}")
         return None
 
-def handler(request, context):
-    """Vercel serverless function handler."""
+# Standard Vercel Python function handler
+def handler(request):
+    """Standard Vercel serverless function handler."""
     
     try:
-        # Parse the request
-        if request.get('httpMethod') == 'GET':
-            path = request.get('path', '')
-            if path == '/api/python/health':
-                return {
-                    'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json'},
-                    'body': json.dumps({"status": "healthy", "message": "Ultra-minimal Python API is running"})
-                }
-            else:
-                return {
-                    'statusCode': 200,
-                    'headers': {'Content-Type': 'application/json'},
-                    'body': json.dumps({"message": "Thinkubator RAG Ultra-Minimal Python API is running"})
-                }
+        # Get request method and path
+        method = request.get('method', 'GET')
+        path = request.get('path', '/')
         
-        elif request.get('httpMethod') == 'POST':
-            path = request.get('path', '')
+        print(f"=== Python Function Debug ===")
+        print(f"Method: {method}")
+        print(f"Path: {path}")
+        print(f"Request keys: {list(request.keys())}")
+        print("=============================")
+        
+        if method == 'GET':
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json'},
+                'body': json.dumps({"message": "Thinkubator RAG Ultra-Minimal Python API is running", "path": path})
+            }
+        
+        elif method == 'POST':
+            # Parse request body
+            body = request.get('body', '{}')
+            if isinstance(body, str):
+                body = json.loads(body)
             
-            if path == '/api/python/query':
-                # Parse request body
-                body = request.get('body', '{}')
-                if isinstance(body, str):
-                    body = json.loads(body)
+            query = body.get('query', '')
+            if not query:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json'},
+                    'body': json.dumps({"detail": "Query is required"})
+                }
+            
+            start_time = time.time()
+            
+            try:
+                # Generate query embedding
+                query_embedding = generate_embedding(query)
                 
-                query = body.get('query', '')
-                if not query:
-                    return {
-                        'statusCode': 400,
-                        'headers': {'Content-Type': 'application/json'},
-                        'body': json.dumps({"detail": "Query is required"})
-                    }
+                # Retrieve similar documents
+                similar_docs = search_supabase(query_embedding, k=5)
                 
-                import time
-                start_time = time.time()
-                
-                try:
-                    # Generate query embedding
-                    query_embedding = generate_embedding(query)
-                    
-                    # Retrieve similar documents
-                    similar_docs = search_supabase(query_embedding, k=5)
-                    
-                    if not similar_docs:
-                        return {
-                            'statusCode': 200,
-                            'headers': {'Content-Type': 'application/json'},
-                            'body': json.dumps({
-                                "answer": "I do not have enough information to answer your question. No relevant documents were found.",
-                                "chunks": [],
-                                "session_id": None,
-                                "processing_time_ms": int((time.time() - start_time) * 1000)
-                            })
-                        }
-                    
-                    # Generate answer
-                    answer = generate_answer(query, similar_docs)
-                    
-                    # Calculate processing time
-                    processing_time_ms = int((time.time() - start_time) * 1000)
-                    
-                    # Store the query session
-                    session_id = store_query_session(query, answer, similar_docs, processing_time_ms)
-                    
+                if not similar_docs:
                     return {
                         'statusCode': 200,
                         'headers': {'Content-Type': 'application/json'},
                         'body': json.dumps({
-                            "answer": answer,
-                            "chunks": similar_docs,
-                            "session_id": session_id,
-                            "processing_time_ms": processing_time_ms
+                            "answer": "I do not have enough information to answer your question. No relevant documents were found.",
+                            "chunks": [],
+                            "session_id": None,
+                            "processing_time_ms": int((time.time() - start_time) * 1000)
                         })
                     }
-                    
-                except Exception as e:
-                    return {
-                        'statusCode': 500,
-                        'headers': {'Content-Type': 'application/json'},
-                        'body': json.dumps({"detail": f"Query processing failed: {str(e)}"})
-                    }
-            
-            else:
+                
+                # Generate answer
+                answer = generate_answer(query, similar_docs)
+                
+                # Calculate processing time
+                processing_time_ms = int((time.time() - start_time) * 1000)
+                
+                # Store the query session
+                session_id = store_query_session(query, answer, similar_docs, processing_time_ms)
+                
                 return {
-                    'statusCode': 404,
+                    'statusCode': 200,
                     'headers': {'Content-Type': 'application/json'},
-                    'body': json.dumps({"detail": "Endpoint not found"})
+                    'body': json.dumps({
+                        "answer": answer,
+                        "chunks": similar_docs,
+                        "session_id": session_id,
+                        "processing_time_ms": processing_time_ms
+                    })
+                }
+                
+            except Exception as e:
+                return {
+                    'statusCode': 500,
+                    'headers': {'Content-Type': 'application/json'},
+                    'body': json.dumps({"detail": f"Query processing failed: {str(e)}"})
                 }
         
         else:
@@ -255,11 +246,9 @@ def handler(request, context):
             }
     
     except Exception as e:
+        print(f"Handler error: {e}")
         return {
             'statusCode': 500,
             'headers': {'Content-Type': 'application/json'},
             'body': json.dumps({"detail": f"Internal server error: {str(e)}"})
         }
-
-# Vercel handler
-app = Mangum(handler)

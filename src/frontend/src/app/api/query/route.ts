@@ -4,23 +4,33 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    // Detect if we're running on Vercel by checking for VERCEL_URL
-    const isVercel = process.env.VERCEL_URL || process.env.NODE_ENV === 'production'
+    // More robust Vercel detection
+    const isVercel = !!(
+      process.env.VERCEL || 
+      process.env.VERCEL_URL || 
+      process.env.NODE_ENV === 'production' ||
+      request.nextUrl.hostname !== 'localhost'
+    )
     
     let apiUrl: string
     if (isVercel) {
-      // On Vercel, use the absolute URL to the Python function
-      const baseUrl = process.env.VERCEL_URL 
-        ? `https://${process.env.VERCEL_URL}`
-        : request.nextUrl.origin
-      apiUrl = `${baseUrl}/api/python/query`
+      // On Vercel, use relative URL (more reliable than absolute)
+      apiUrl = '/api/python/query'
     } else {
       // Local development
       apiUrl = 'http://localhost:8000/query'
     }
     
-    console.log(`Environment: ${isVercel ? 'Vercel' : 'Local'}`)
-    console.log(`Calling API at: ${apiUrl}`)
+    // Enhanced logging for debugging
+    console.log('=== Environment Debug Info ===')
+    console.log(`VERCEL: ${process.env.VERCEL}`)
+    console.log(`VERCEL_URL: ${process.env.VERCEL_URL}`)
+    console.log(`NODE_ENV: ${process.env.NODE_ENV}`)
+    console.log(`Hostname: ${request.nextUrl.hostname}`)
+    console.log(`Origin: ${request.nextUrl.origin}`)
+    console.log(`Is Vercel: ${isVercel}`)
+    console.log(`API URL: ${apiUrl}`)
+    console.log('==============================')
     
     const response = await fetch(apiUrl, {
       method: 'POST',

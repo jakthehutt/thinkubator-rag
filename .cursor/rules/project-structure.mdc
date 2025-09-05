@@ -1,0 +1,167 @@
+---
+alwaysApply: true
+---
+
+# Project Structure Rules
+
+## ⚠️ CRITICAL: Avoid Duplicate Directory Structures
+
+### Frontend Structure (Next.js)
+The frontend uses the **App Router** structure and should ONLY have:
+
+```
+src/frontend/
+├── src/                    ← ONLY src directory
+│   ├── app/               ← App Router (Next.js 13+)
+│   │   ├── page.tsx       ← Main page
+│   │   ├── layout.tsx     ← Root layout
+│   │   ├── globals.css    ← Global styles
+│   │   └── api/           ← API routes
+│   │       └── query/
+│   │           └── route.ts
+│   └── components/        ← React components
+│       ├── QueryInterface.tsx
+│       └── ResultsDisplay.tsx
+├── api/                   ← Vercel serverless functions
+│   ├── python.py
+│   └── requirements.txt
+├── public/                ← Static assets
+├── package.json
+├── next.config.ts
+├── tsconfig.json
+└── vercel.json
+```
+
+### ❌ NEVER CREATE THESE DUPLICATE STRUCTURES:
+- `src/frontend/app/` (duplicate of `src/frontend/src/app/`)
+- `src/frontend/components/` (duplicate of `src/frontend/src/components/`)
+- `src/frontend/pages/` (Pages Router - we use App Router)
+
+### ✅ Correct File Locations:
+- **Pages**: [src/frontend/src/app/page.tsx](mdc:src/frontend/src/app/page.tsx)
+- **Layout**: [src/frontend/src/app/layout.tsx](mdc:src/frontend/src/app/layout.tsx)
+- **API Routes**: [src/frontend/src/app/api/query/route.ts](mdc:src/frontend/src/app/api/query/route.ts)
+- **Components**: [src/frontend/src/components/](mdc:src/frontend/src/components/)
+
+### TypeScript Configuration
+[src/frontend/tsconfig.json](mdc:src/frontend/tsconfig.json) is configured with:
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
+}
+```
+This means imports use `@/` prefix pointing to `src/` directory.
+
+## Backend Structure
+```
+src/backend/
+├── chain/                 ← RAG pipeline components
+│   ├── rag_pipeline.py
+│   └── rag_pipeline_supabase.py
+├── vector_store/          ← Vector database operations
+│   └── supabase_vector_store.py
+├── storage/               ← Query session storage
+│   └── query_storage.py
+├── tests/                 ← Test files
+└── prompt/                ← AI prompts
+```
+
+## Root Structure
+```
+/
+├── src/
+│   ├── frontend/          ← Next.js application
+│   └── backend/           ← Python RAG system
+├── data/                  ← Data files (excluded from git)
+├── scripts/               ← Utility scripts
+├── make/                  ← Test execution scripts
+├── .cursor/rules/         ← Cursor rules
+├── requirements.txt       ← Python dependencies
+└── run_local.py          ← Local development server
+```
+
+## Prevention Rules
+
+### 1. Before Creating Directories
+Always check if the directory already exists in the correct location:
+```bash
+# Check existing structure
+ls -la src/frontend/
+ls -la src/frontend/src/
+```
+
+### 2. File Creation Guidelines
+- **Pages**: Always create in `src/frontend/src/app/`
+- **Components**: Always create in `src/frontend/src/components/`
+- **API Routes**: Always create in `src/frontend/src/app/api/`
+- **Styles**: Global styles in `src/frontend/src/app/globals.css`
+
+### 3. Import Statements
+Use the configured path alias:
+```typescript
+// ✅ Correct
+import Component from '@/components/Component'
+
+// ❌ Wrong
+import Component from '../components/Component'
+import Component from './components/Component'
+```
+
+### 4. Regular Cleanup Checks
+Run these commands to identify duplicates:
+```bash
+# Check for duplicate app directories
+find src/frontend -name "app" -type d
+
+# Check for duplicate components directories  
+find src/frontend -name "components" -type d
+
+# Compare directories if duplicates exist
+diff -r src/frontend/app/ src/frontend/src/app/
+```
+
+## Troubleshooting
+
+### If Duplicates Are Found:
+1. **Identify the correct directory** (usually the one in `src/`)
+2. **Compare files** to see which has the latest changes
+3. **Remove the duplicate** directory
+4. **Test the build** to ensure everything works
+
+### Build Errors After Structure Changes:
+1. **Clear Next.js cache**: `rm -rf .next/`
+2. **Reinstall dependencies**: `rm -rf node_modules && npm install`
+3. **Check tsconfig.json paths**: Ensure they point to correct directories
+4. **Verify imports**: Update any hardcoded paths
+
+## Next.js App Router vs Pages Router
+
+### ✅ We Use App Router (Next.js 13+)
+- Files in `src/app/` directory
+- `page.tsx` for pages
+- `layout.tsx` for layouts
+- `route.ts` for API routes
+
+### ❌ Don't Use Pages Router
+- Files in `pages/` directory (old Next.js pattern)
+- `index.tsx` for pages
+- `_app.tsx` for app wrapper
+- API routes in `pages/api/`
+
+## Maintenance
+
+### Weekly Structure Check:
+```bash
+# Run this command to verify clean structure
+find src/frontend -type d -name "app" -o -name "components" -o -name "pages" | sort
+```
+
+Should only show:
+- `src/frontend/src/app`
+- `src/frontend/src/components`
+
+Any additional entries indicate duplicate structures that need cleanup.
