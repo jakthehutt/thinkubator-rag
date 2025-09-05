@@ -57,10 +57,10 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">
-                  Thinkubator RAG Explorer
+                  Thinkubator AI Knowledge Explorer
                 </h1>
                 <p className="text-sm text-gray-600 hidden sm:block">
-                  Explore circular economy knowledge with AI
+                  Instantly search and synthesize insights from Thinkubator’s research library
                 </p>
               </div>
             </div>
@@ -74,11 +74,10 @@ export default function Home() {
           {/* Hero Section */}
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Discover Circular Economy Insights
+              What do you want to know about sustainability, circularity, or the environment?
             </h2>
             <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-              Ask questions about sustainability, circular business models, and environmental topics. 
-              Get AI-powered answers backed by research and expert knowledge.
+              Ask anything and recieve a reliable answer generated from 750+ reports and scientific documents.
             </p>
           </div>
 
