@@ -24,6 +24,7 @@ build/
 
 # ChromaDB
 chroma_db/
+data/pdfs/
 data/processed/chroma_db/
 
 # Jupyter Notebook
