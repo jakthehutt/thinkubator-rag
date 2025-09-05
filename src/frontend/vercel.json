@@ -1,19 +1,6 @@
 {
   "version": 2,
   "framework": "nextjs",
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    },
-    {
-      "src": "../../api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb"
-      }
-    }
-  ],
   "routes": [
     {
       "src": "/api/(.*)",
@@ -29,7 +16,9 @@
   },
   "functions": {
     "../../api/index.py": {
-      "maxDuration": 30
+      "runtime": "@vercel/python",
+      "maxDuration": 30,
+      "memory": 512
     }
   }
 }
