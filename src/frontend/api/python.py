@@ -261,7 +261,5 @@ def handler(request, context):
             'body': json.dumps({"detail": f"Internal server error: {str(e)}"})
         }
 
-# Vercel handler - use the standard Mangum pattern
-from mangum import Mangum
-
+# Vercel handler
 app = Mangum(handler)
