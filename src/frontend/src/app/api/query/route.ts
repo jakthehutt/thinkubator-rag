@@ -4,13 +4,22 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    // In production (Vercel), the Python API is deployed as a serverless function
-    // In development, we need to call the local backend
-    const isProduction = process.env.NODE_ENV === 'production'
-    const apiUrl = isProduction 
-      ? '/api/python/query' // Vercel will route this to the Python function
-      : 'http://localhost:8000/query' // Local development
+    // Detect if we're running on Vercel by checking for VERCEL_URL
+    const isVercel = process.env.VERCEL_URL || process.env.NODE_ENV === 'production'
     
+    let apiUrl: string
+    if (isVercel) {
+      // On Vercel, use the absolute URL to the Python function
+      const baseUrl = process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}`
+        : request.nextUrl.origin
+      apiUrl = `${baseUrl}/api/python/query`
+    } else {
+      // Local development
+      apiUrl = 'http://localhost:8000/query'
+    }
+    
+    console.log(`Environment: ${isVercel ? 'Vercel' : 'Local'}`)
     console.log(`Calling API at: ${apiUrl}`)
     
     const response = await fetch(apiUrl, {
