@@ -16,8 +16,8 @@ import json
 project_root = Path(__file__).parent.parent.absolute()
 sys.path.insert(0, str(project_root))
 
-# Import your RAG pipeline
-from src.backend.chain.rag_pipeline import RAGPipeline
+# Import your RAG pipeline (updated to use Supabase)
+from src.backend.chain.rag_pipeline_supabase import RAGPipelineSupabase
 
 app = FastAPI(title="Thinkubator RAG API", version="1.0.0")
 
@@ -41,7 +41,7 @@ def get_rag_pipeline():
             raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured")
         
         try:
-            rag_pipeline = RAGPipeline(api_key=api_key)
+            rag_pipeline = RAGPipelineSupabase(api_key=api_key)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to initialize RAG pipeline: {str(e)}")
     
