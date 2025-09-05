@@ -49,8 +49,14 @@ def test_storing_chunks(mock_rag_pipeline):
             assert kwargs["metadatas"][0]["meta_category"] == "test"
             assert kwargs["metadatas"][0]["page_in_document"] == 1
             assert kwargs["metadatas"][0]["page_approximation"] == "true"
+            # Check that created_at timestamp is present
+            assert "created_at" in kwargs["metadatas"][0]
+            assert kwargs["metadatas"][0]["created_at"] is not None
 
             assert kwargs["ids"][0] == f"{document_name}_1_0"
 
             assert kwargs["metadatas"][1]["page_in_document"] == 2
+            # Check that created_at timestamp is present for second chunk too
+            assert "created_at" in kwargs["metadatas"][1]
+            assert kwargs["metadatas"][1]["created_at"] is not None
             assert kwargs["ids"][1] == f"{document_name}_2_1"

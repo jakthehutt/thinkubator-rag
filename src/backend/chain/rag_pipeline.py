@@ -5,6 +5,7 @@ import chromadb
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import logging
 import re
+from datetime import datetime
 from typing import List, Optional, Dict, Any
 
 from src.backend.chain.query_processor import QueryProcessorFactory, BaseQueryProcessor
@@ -186,6 +187,7 @@ class RAGPipeline:
                 "page_approximation": "true",  # Indicate page number is estimated
                 "summary_of_chunk": str(chunk_summary) if chunk_summary else "",
                 "summary_of_document": str(document_summary) if document_summary else "",
+                "created_at": datetime.now().isoformat(),  # Add creation timestamp
             }
             
             # Add general_metadata fields with a prefix to avoid naming conflicts

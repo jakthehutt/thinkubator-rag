@@ -80,6 +80,7 @@ def save_processed_document_to_json(document_name: str, full_text: str, page_tex
                 "content": chunk,
                 "summary": chunk_summaries[i] if i < len(chunk_summaries) else "",
                 "character_count": len(chunk),
+                "created_at": datetime.now().isoformat(),
                 "estimated_page": None  # Will be calculated later
             }
             for i, chunk in enumerate(chunks)

@@ -27,54 +27,24 @@ def main():
 
     st.title("Thinkubator RAG Pipeline Explorer")
 
-    # --- API Key Configuration ---
-    st.sidebar.header("Configuration")
-    
-    # Check if API key exists in environment (from .env file)
     env_api_key = os.environ.get("GEMINI_API_KEY")
-    
-    if env_api_key:
-        st.sidebar.success("✅ API Key loaded from .env file")
-        api_key_to_use = env_api_key
-        # Show option to override with manual input
-        manual_override = st.sidebar.checkbox("Override with manual API key")
-        if manual_override:
-            api_key_input = st.sidebar.text_input(
-                "Enter your Gemini API Key", 
-                type="password",
-                help="This will override the key from .env file"
-            )
-            if api_key_input:
-                api_key_to_use = api_key_input
-    else:
-        st.sidebar.warning("⚠️ No API key found in .env file")
-        api_key_input = st.sidebar.text_input(
-            "Enter your Gemini API Key", 
-            type="password",
-            help="Get your key from Google AI Studio. The app will use this key to initialize the pipeline."
-        )
-        api_key_to_use = api_key_input
+    if not env_api_key:
+        st.error("GEMINI_API_KEY not found in .env file. Please set it to proceed.")
+        st.stop()
 
-    # --- Pipeline Initialization ---
-    # The pipeline is now initialized only after a key is provided.
-    if api_key_to_use:
-        if 'rag_pipeline' not in st.session_state or st.session_state.get('api_key') != api_key_to_use:
-            with st.spinner("Initializing RAG Pipeline with new API Key..."):
-                try:
-                    # Pass the key directly to the pipeline
-                    pipeline = RAGPipeline(api_key=api_key_to_use)
-                    st.session_state.rag_pipeline = pipeline
-                    st.session_state.api_key = api_key_to_use # Store the key to detect changes
-                    st.sidebar.success("Pipeline Initialized!")
-                except Exception as e:
-                    st.error(f"Error initializing RAG Pipeline: {e}")
-                    st.stop()
+    if 'rag_pipeline' not in st.session_state or st.session_state.get('api_key') != env_api_key:
+        with st.spinner("Initializing RAG Pipeline..."):
+            try:
+                pipeline = RAGPipeline(api_key=env_api_key)
+                st.session_state.rag_pipeline = pipeline
+                st.session_state.api_key = env_api_key
+                st.sidebar.success("Pipeline Initialized!")
+            except Exception as e:
+                st.error(f"Error initializing RAG Pipeline: {e}")
+                st.stop()
     
-    # --- Main App Body ---
     st.markdown("""
     This application allows you to test and visualize the different components of the RAG (Retrieval-Augmented Generation) pipeline. 
-    
-    **Enter your Gemini API Key in the sidebar to begin.**
     """)
 
     # Only show the query interface if the pipeline is ready
