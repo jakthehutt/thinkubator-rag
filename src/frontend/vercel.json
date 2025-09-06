@@ -9,9 +9,17 @@
     {
       "src": "api/python/index.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "api/python/debug.py",
+      "use": "@vercel/python"
     }
   ],
   "routes": [
+    {
+      "src": "/api/python/debug",
+      "dest": "api/python/debug.py"
+    },
     {
       "src": "/api/python/(.*)",
       "dest": "api/python/index.py"
