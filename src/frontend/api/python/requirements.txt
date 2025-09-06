@@ -1,7 +1,14 @@
-# Ultra-minimal requirements for Vercel Python function
-# Using direct HTTP calls instead of heavy SDKs to stay under 250MB limit
+# Requirements for Vercel Python function using unified handler
+# Includes dependencies needed for the full RAG pipeline
 
-# HTTP requests only
+# Core dependencies
 requests
 python-dotenv
 mangum
+
+# RAG pipeline dependencies
+google-generativeai
+langchain-google-genai
+supabase
+psycopg2-binary
+pypdf
