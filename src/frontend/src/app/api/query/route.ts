@@ -7,7 +7,21 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
 const isDevelopment = process.env.NODE_ENV === 'development'
 const isVercel = process.env.VERCEL === '1'
 
-async function callBackendAPI(query: string) {
+// Type definitions
+interface BackendChunk {
+  content?: string
+  document?: string
+  metadata?: Record<string, unknown>
+}
+
+interface BackendResponse {
+  answer: string
+  chunks: BackendChunk[]
+  session_id: string | null
+  processing_time_ms: number
+}
+
+async function callBackendAPI(query: string): Promise<BackendResponse> {
   try {
     const response = await fetch(`${BACKEND_URL}/query`, {
       method: 'POST',
@@ -61,7 +75,7 @@ export async function POST(request: NextRequest) {
       // Transform backend response to match frontend expectations
       const transformedResponse = {
         answer: backendResponse.answer,
-        chunks: backendResponse.chunks.map((chunk: any) => ({
+        chunks: backendResponse.chunks.map((chunk: BackendChunk) => ({
           document: chunk.content || chunk.document || "",
           metadata: chunk.metadata || {}
         })),
