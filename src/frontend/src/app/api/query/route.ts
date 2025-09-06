@@ -42,6 +42,27 @@ async function callBackendAPI(query: string): Promise<BackendResponse> {
   }
 }
 
+async function callVercelPythonFunction(query: string): Promise<BackendResponse> {
+  try {
+    const response = await fetch('/api/python/query', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Vercel Python function error: ${response.status}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Vercel Python function call failed:', error)
+    throw error
+  }
+}
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
 
@@ -65,12 +86,20 @@ export async function POST(request: NextRequest) {
     console.log('=====================================')
 
     try {
-      // Call the backend API
-      console.log('📡 Calling backend API...')
-      const backendResponse = await callBackendAPI(query)
+      let backendResponse: BackendResponse
+
+      if (isVercel) {
+        // In Vercel deployment, use the Python function directly
+        console.log('📡 Calling Vercel Python function...')
+        backendResponse = await callVercelPythonFunction(query)
+      } else {
+        // In local development, call the backend API
+        console.log('📡 Calling backend API...')
+        backendResponse = await callBackendAPI(query)
+      }
 
       const processingTime = Date.now() - startTime
-      console.log(`✅ Backend API call completed in ${processingTime}ms`)
+      console.log(`✅ API call completed in ${processingTime}ms`)
 
       // Transform backend response to match frontend expectations
       const transformedResponse = {
@@ -86,10 +115,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(transformedResponse)
 
     } catch (backendError) {
-      console.error('Backend API Error:', backendError)
+      console.error('API Error:', backendError)
 
       // Fallback to mock response if backend is unavailable
-      console.log('🔄 Backend unavailable, falling back to mock response...')
+      console.log('🔄 API unavailable, falling back to mock response...')
 
       const mockResponse = {
         answer: `I encountered an issue accessing the document database for your query "${query}". This appears to be a temporary technical issue. Please try again later or contact support if the problem persists.`,
