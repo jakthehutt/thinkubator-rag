@@ -1,6 +1,6 @@
 # Thinkubator RAG Explorer 🚀
 
-A modern, serverless RAG (Retrieval-Augmented Generation) application for exploring circular economy knowledge. Built with Next.js 14, FastAPI, and Supabase - optimized for Vercel deployment.
+A modern, serverless RAG (Retrieval-Augmented Generation) application for exploring circular economy knowledge. Built with Next.js 15, Python serverless functions, and Supabase - optimized for Vercel deployment.
 
 ## ✨ Features
 
@@ -10,23 +10,27 @@ A modern, serverless RAG (Retrieval-Augmented Generation) application for explor
 - **💾 Session Storage**: All queries and answers stored in Supabase
 - **📊 Analytics Ready**: Query history and performance tracking
 - **🎨 Modern Design**: Responsive UI inspired by thinkubator.earth
+- **🚀 Local Development**: Mock API for testing without backend dependencies
 
 ## 🏗️ Architecture
 
-### Frontend - Next.js 14
+### Frontend - Next.js 15
 - **Location**: `src/frontend/`
-- **Tech**: TypeScript, Tailwind CSS, App Router
+- **Tech**: TypeScript, Tailwind CSS, App Router, Turbopack
 - **Deployment**: Vercel static hosting
+- **Local Dev**: Mock API for testing
 
-### Backend - FastAPI Serverless
-- **Location**: `api/index.py`
-- **Tech**: Python, FastAPI, Supabase integration
-- **Deployment**: Vercel serverless functions
+### Backend - Python Serverless Functions
+- **Location**: `src/frontend/api/python/index.py`
+- **Tech**: Python 3.13.5, unified handler architecture
+- **Deployment**: Vercel serverless functions (8 packages, <250MB)
+- **Consistency**: Same logic for local FastAPI and Vercel functions
 
 ### Database - Supabase
 - **Vector Storage**: pgvector for document embeddings
 - **Query Storage**: Session tracking and analytics
 - **Full-text Search**: PostgreSQL capabilities
+- **Migration**: Completed from ChromaDB to Supabase
 
 ## 🚀 Quick Start
 
@@ -44,22 +48,30 @@ Create `.env` file:
 ```env
 GEMINI_API_KEY=your_gemini_api_key
 SUPABASE_URL=your_supabase_project_url
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-POSTGRES_URL_NON_POOLING=your_postgres_direct_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+VERCEL_BYPASS_TOKEN=your_bypass_token  # Optional
 ```
 
 ### 3. Development
 ```bash
-# Start frontend dev server
-make run-frontend              # http://localhost:3000
+# Quick start with mock API (no backend needed)
+cd src/frontend && npm run dev    # http://localhost:3000
+
+# With real backend
+python run_local.py              # Start FastAPI backend
+cd src/frontend && npm run dev   # Start Next.js frontend
 
 # Test everything works
-make test-all                  # Comprehensive test suite
+make test-all                    # Comprehensive test suite
 ```
 
 ### 4. Deploy to Vercel
 ```bash
-vercel --prod                  # One-command deployment
+# Push to GitHub (auto-deploys)
+git push origin main
+
+# Or manual deployment
+vercel --prod
 ```
 
 ## 🧪 Testing (No Docker Required!)

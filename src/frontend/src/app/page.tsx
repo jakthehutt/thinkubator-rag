@@ -18,11 +18,13 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
 
   const handleQuery = async (query: string) => {
+    console.log('🔍 Starting query:', query)
     setLoading(true)
     setError(null)
     setResult(null)
 
     try {
+      console.log('📡 Making API request...')
       const response = await fetch('/api/query', {
         method: 'POST',
         headers: {
@@ -31,17 +33,24 @@ export default function Home() {
         body: JSON.stringify({ query }),
       })
 
+      console.log('📊 Response status:', response.status)
+      console.log('📊 Response ok:', response.ok)
+
       if (!response.ok) {
         const errorData = await response.json()
+        console.error('❌ API Error:', errorData)
         throw new Error(errorData.detail || `Server error: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log('✅ API Success:', data)
       setResult(data)
     } catch (err) {
+      console.error('💥 Query Error:', err)
       setError(err instanceof Error ? err.message : 'An unexpected error occurred')
     } finally {
       setLoading(false)
+      console.log('🏁 Query completed')
     }
   }
 

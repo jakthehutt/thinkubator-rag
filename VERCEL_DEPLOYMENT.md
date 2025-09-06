@@ -2,7 +2,7 @@
 
 ## Overview
 
-Your Thinkubator RAG application has been configured for deployment to Vercel using a **FastAPI backend** with a **modern HTML frontend**. This approach works better than deploying Streamlit directly to Vercel due to serverless constraints.
+Your Thinkubator RAG application has been configured for deployment to Vercel using a **Next.js frontend** with **Python serverless functions**. This modern architecture provides excellent performance and scalability.
 
 ## 🚀 Quick Deployment Steps
 
@@ -13,106 +13,107 @@ Ensure your code is pushed to a GitHub repository that's connected to Vercel.
 Go to your Vercel project settings and add these environment variables:
 
 - `GEMINI_API_KEY`: Your Google Gemini API key
-- `PYTHONPATH`: Set to `.` (this is already configured in vercel.json)
+- `SUPABASE_URL`: Your Supabase project URL
+- `SUPABASE_ANON_KEY`: Your Supabase anonymous key
+- `VERCEL_BYPASS_TOKEN`: Optional bypass token for deployment protection
 
 ### 3. Deploy
 Push your changes or manually trigger a deployment in Vercel.
 
-## 📁 What We Created
+## 📁 Architecture Overview
 
-### Files Added/Modified:
-- `api/index.py` - FastAPI application with RAG endpoints
-- `public/index.html` - Modern web interface 
-- `vercel.json` - Vercel deployment configuration
-- `requirements.txt` - Updated with `mangum` for ASGI compatibility
+### Frontend (Next.js)
+- **Location**: `src/frontend/`
+- **Framework**: Next.js 15.5.2 with App Router
+- **Styling**: Tailwind CSS
+- **Components**: React components for query interface and results display
+
+### Backend (Python Serverless Functions)
+- **Location**: `src/frontend/api/python/index.py`
+- **Runtime**: Python 3.13.5
+- **Dependencies**: Minimal set (8 packages) to stay under Vercel's 250MB limit
+- **Handler**: Uses unified handler for consistency with local development
+
+### Database
+- **Vector Storage**: Supabase with pgvector
+- **Document Storage**: Supabase tables
+- **Migration**: Completed from ChromaDB to Supabase
 
 ## 🔧 API Endpoints
 
 Once deployed, your application will have these endpoints:
 
-- `GET /` - Web interface
-- `GET /api/health` - Health check
-- `POST /api/query` - Main RAG query endpoint
-- `GET /api/chunks/{query}` - Retrieve chunks without generating answer
+- `GET /` - Next.js web interface
+- `POST /api/query` - Next.js API route (proxies to Python function)
+- `POST /api/python/query` - Python serverless function (main RAG logic)
 
 ### Example API Usage:
 
 ```bash
-# Health check
-curl https://your-app.vercel.app/api/health
-
 # Query the RAG pipeline
 curl -X POST https://your-app.vercel.app/api/query \\
   -H "Content-Type: application/json" \\
   -d '{"query": "What is the circularity gap?"}'
 ```
 
-## ⚠️ Important Considerations
+## ✅ Current Status
 
-### ChromaDB Storage Issue
-**CRITICAL**: Your current setup uses a local ChromaDB database stored in `data/processed/chroma_db/`. This **will not work** on Vercel because:
+### Completed:
+- ✅ Next.js frontend with modern UI
+- ✅ Python serverless functions configured
+- ✅ Supabase vector database migration completed
+- ✅ Unified backend architecture
+- ✅ Environment detection and routing
+- ✅ Local development setup with mock API
+- ✅ Vercel deployment configuration
 
-1. Vercel serverless functions are stateless
-2. File system is read-only except for `/tmp`
-3. Data doesn't persist between function invocations
+### Ready for Production:
+- ✅ All dependencies optimized (8 packages, under 250MB limit)
+- ✅ Database migration from ChromaDB to Supabase completed
+- ✅ Environment variables documented
+- ✅ API endpoints tested and working
 
-### Solutions for Database Storage:
+## 🛠️ Deployment Checklist
 
-#### Option 1: Pinecone (Recommended)
-```python
-# Switch to Pinecone vector database
-pip install pinecone-client
+### Before Deploying:
+1. **Set up Supabase project** (if not already done)
+2. **Configure environment variables** in Vercel dashboard:
+   - `GEMINI_API_KEY`
+   - `SUPABASE_URL` 
+   - `SUPABASE_ANON_KEY`
+   - `VERCEL_BYPASS_TOKEN` (optional)
+3. **Test locally** with `npm run dev` in `src/frontend/`
+
+### After Deploying:
+1. **Test production endpoints**
+2. **Verify environment variables** are loaded
+3. **Check Supabase connection**
+4. **Test RAG pipeline** with real queries
+
+## 🔧 Local Development
+
+### Quick Start:
+```bash
+# Start frontend with mock API
+cd src/frontend
+npm run dev
+
+# Access at http://localhost:3000
 ```
-Update your RAG pipeline to use Pinecone instead of ChromaDB.
 
-#### Option 2: Supabase Vector
-```python
-# Use Supabase's pgvector
-pip install supabase vecs
+### With Real Backend:
+```bash
+# Start FastAPI backend
+python run_local.py
+
+# Start Next.js frontend  
+cd src/frontend
+npm run dev
 ```
 
-#### Option 3: Weaviate Cloud
-```python
-# Use Weaviate cloud service
-pip install weaviate-client
-```
+## 📊 Performance Optimizations
 
-#### Option 4: Deploy ChromaDB Separately
-Deploy ChromaDB as a separate service (e.g., Railway, Render) and connect via HTTP.
-
-### Environment Variables Needed:
-- `GEMINI_API_KEY` - Your Google Gemini API key
-- Vector DB credentials (depending on chosen solution)
-
-## 🔄 Migration Steps for Database
-
-1. **Choose a cloud vector database** (Pinecone recommended)
-2. **Update your `RAGPipeline` class** to use the new database
-3. **Migrate your existing embeddings** from ChromaDB to the new service
-4. **Update environment variables** in Vercel
-
-## 🎯 Alternative: Keep Streamlit + Use Different Platform
-
-If you prefer to keep your Streamlit interface, consider these platforms:
-
-- **Streamlit Community Cloud** (Free, purpose-built for Streamlit)
-- **Railway** (Supports persistent storage)
-- **Render** (Good for Python applications)
-- **Heroku** (Classic choice)
-
-## 📝 Current Status
-
-✅ FastAPI wrapper created
-✅ Modern web interface ready  
-✅ Vercel configuration complete
-❌ Database storage needs migration
-❌ Environment variables need setup in Vercel
-
-## 🛠️ Next Steps
-
-1. **Set up environment variables** in Vercel dashboard
-2. **Choose and implement vector database solution**
-3. **Migrate your existing data**
-4. **Test deployment**
-
-Would you like help with any of these steps?
+- **Bundle Size**: Optimized to stay under Vercel's 250MB limit
+- **Cold Start**: Minimal dependencies for faster function startup
+- **Caching**: Supabase provides built-in caching
+- **Frontend**: Turbopack for faster builds and hot reloading

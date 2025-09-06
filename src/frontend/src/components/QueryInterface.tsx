@@ -13,7 +13,16 @@ export function QueryInterface({ onQuery, loading }: QueryInterfaceProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!query.trim() || loading) return
+    console.log('🚀 Form submitted with query:', query)
+    console.log('🚀 Loading state:', loading)
+    console.log('🚀 Query trimmed:', query.trim())
+    
+    if (!query.trim() || loading) {
+      console.log('❌ Form submission blocked - empty query or loading')
+      return
+    }
+    
+    console.log('✅ Calling onQuery...')
     await onQuery(query.trim())
   }
 

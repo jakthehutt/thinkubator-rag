@@ -3,10 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "vercel dev",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node tests/test-vercel.js",
+    "test:api": "node tests/test-vercel-api.js",
+    "test:frontend": "node tests/test-vercel-frontend.js",
+    "test:e2e": "node tests/test-vercel-e2e.js",
+    "test:setup": "node tests/test-local-setup.js",
+    "test:debug": "node tests/debug-api.js",
+    "test:coverage": "node tests/test-document-coverage.js",
+    "test:all": "npm run test:api && npm run test:frontend && npm run test:e2e && npm run test:coverage"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -22,7 +30,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
+    "node-fetch": "^2.7.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vercel": "^39.0.0"
   }
 }

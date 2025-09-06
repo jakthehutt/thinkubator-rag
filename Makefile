@@ -1,5 +1,6 @@
-.PHONY: test-chunking test-storing test-retrieving test-generation ingest-pdfs
+.PHONY: test-chunking test-storing test-retrieving test-generation ingest-pdfs test-frontend-vercel test-frontend-api test-frontend-e2e test-frontend-components test-frontend-coverage
 
+# Backend tests
 test-chunking:
 	@bash make/test_chunking.sh
 
@@ -15,20 +16,38 @@ test-generation:
 test-e2e:
 	@bash make/test_e2e.sh
 
-ingest-pdfs:
-	@bash make/ingest_pdfs.sh
-
-test-all:
-	@bash make/test_all.sh
-
-test-frontend:
-	@bash make/test_frontend.sh
-
 test-supabase:
 	@bash make/test_supabase.sh
 
 test-api:
 	@bash make/test_api.sh
+
+test-all:
+	@bash make/test_all.sh
+
+# Frontend tests (Vercel dev)
+test-frontend-vercel:
+	@bash make/test_frontend_vercel.sh
+
+test-frontend-api:
+	@bash make/test_frontend_api.sh
+
+test-frontend-e2e:
+	@bash make/test_frontend_e2e.sh
+
+test-frontend-components:
+	@bash make/test_frontend_components.sh
+
+test-frontend-coverage:
+	@bash make/test_frontend_coverage.sh
+
+# Legacy frontend test (keep for compatibility)
+test-frontend:
+	@bash make/test_frontend.sh
+
+# Utilities
+ingest-pdfs:
+	@bash make/ingest_pdfs.sh
 
 run-frontend:
 	@cd src/frontend && npm run dev
