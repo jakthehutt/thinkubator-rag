@@ -3,9 +3,10 @@ import { NextRequest, NextResponse } from 'next/server'
 // Backend API configuration
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
 
-// Environment detection
+// Environment detection - prioritize local development
 const isDevelopment = process.env.NODE_ENV === 'development'
 const isVercel = process.env.VERCEL === '1'
+const isLocalDevelopment = isDevelopment && !process.env.VERCEL_URL
 
 // Type definitions
 interface BackendChunk {
@@ -42,9 +43,15 @@ async function callBackendAPI(query: string): Promise<BackendResponse> {
   }
 }
 
-async function callVercelPythonFunction(query: string): Promise<BackendResponse> {
+async function callVercelPythonFunction(query: string, request: NextRequest): Promise<BackendResponse> {
   try {
-    const response = await fetch('/api/python/query', {
+    // Get the base URL from the request
+    const baseUrl = new URL(request.url).origin
+    const pythonUrl = `${baseUrl}/api/python/query`
+    
+    console.log(`Calling Python function at: ${pythonUrl}`)
+    
+    const response = await fetch(pythonUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -82,20 +89,22 @@ export async function POST(request: NextRequest) {
     console.log(`Environment: ${process.env.NODE_ENV}`)
     console.log(`Is Development: ${isDevelopment}`)
     console.log(`Is Vercel: ${isVercel}`)
+    console.log(`Is Local Development: ${isLocalDevelopment}`)
+    console.log(`VERCEL_URL: ${process.env.VERCEL_URL}`)
     console.log(`Backend URL: ${BACKEND_URL}`)
     console.log('=====================================')
 
     try {
       let backendResponse: BackendResponse
 
-      if (isVercel) {
-        // In Vercel deployment, use the Python function directly
-        console.log('📡 Calling Vercel Python function...')
-        backendResponse = await callVercelPythonFunction(query)
-      } else {
-        // In local development, call the backend API
-        console.log('📡 Calling backend API...')
+      if (isLocalDevelopment) {
+        // In local development with vercel dev, call the backend API
+        console.log('📡 Calling backend API (local development)...')
         backendResponse = await callBackendAPI(query)
+      } else {
+        // In Vercel deployment, use the Python function directly
+        console.log('📡 Calling Vercel Python function (production)...')
+        backendResponse = await callVercelPythonFunction(query, request)
       }
 
       const processingTime = Date.now() - startTime
