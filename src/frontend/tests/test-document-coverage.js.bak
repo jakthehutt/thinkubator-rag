@@ -3,7 +3,7 @@
 const fetch = require('node-fetch')
 
 class DocumentCoverageTester {
-  constructor(baseUrl = 'http://localhost:3001') {
+  constructor(baseUrl = 'http://localhost:3000') {
     this.baseUrl = baseUrl
     this.testResults = []
   }
