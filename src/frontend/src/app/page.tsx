@@ -60,14 +60,14 @@ export default function Home() {
       {/* Header */}
       <header className="border-b border-gray-200 bg-[#8FB390] sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
+          <div className="flex items-center justify-between py-2">
             <div className="flex items-center space-x-4">
-              <div className="w-40 h-40 rounded-lg flex items-center justify-center">
+              <div className="w-28 h-28 rounded-lg flex items-center justify-center">
                 <Image 
                   src="/logo.avif" 
                   alt="Thinkubator Logo" 
-                  width={160}
-                  height={160}
+                  width={107}
+                  height={107}
                   className="object-contain"
                 />
               </div>
@@ -76,7 +76,7 @@ export default function Home() {
                   Knowledge Explorer
                 </h1>
                 <p className="text-sm text-green-100 hidden sm:block">
-                  Instantly search and synthesize insights from Thinkubator's research library
+                  Instantly search and synthesize insights from thinkubator's research library
                 </p>
               </div>
             </div>
