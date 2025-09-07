@@ -38,14 +38,14 @@ export function QueryInterface({ onQuery, loading }: QueryInterfaceProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ask about circular economy, sustainability, business models..."
-            className="block w-full pl-12 pr-32 py-4 border border-gray-300 rounded-xl text-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm hover:shadow-md transition-all duration-200"
+            className="block w-full pl-12 pr-32 py-4 border border-gray-300 rounded-xl text-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#8FB390] focus:border-transparent shadow-sm hover:shadow-md transition-all duration-200"
             disabled={loading}
           />
           <div className="absolute inset-y-0 right-0 pr-2 flex items-center">
             <button
               type="submit"
               disabled={loading || !query.trim()}
-              className="bg-gradient-to-r from-blue-500 to-green-500 text-white px-6 py-2 rounded-lg font-medium hover:from-blue-600 hover:to-green-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
+              className="bg-[#8FB390] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#3E7652] focus:outline-none focus:ring-2 focus:ring-[#8FB390] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2"
             >
               {loading ? (
                 <>

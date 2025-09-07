@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { QueryInterface } from '@/components/QueryInterface'
 import { ResultsDisplay } from '@/components/ResultsDisplay'
 
@@ -57,19 +58,25 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="border-b border-gray-200 bg-white/70 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-gray-200 bg-[#8FB390] sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-green-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">T</span>
+          <div className="flex items-center justify-between py-2">
+            <div className="flex items-center space-x-4">
+              <div className="w-28 h-28 rounded-lg flex items-center justify-center">
+                <Image 
+                  src="/logo.avif" 
+                  alt="Thinkubator Logo" 
+                  width={107}
+                  height={107}
+                  className="object-contain"
+                />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">
-                  Thinkubator AI Knowledge Explorer
+                <h1 className="text-xl font-bold text-white">
+                  Knowledge Explorer
                 </h1>
-                <p className="text-sm text-gray-600 hidden sm:block">
-                  Instantly search and synthesize insights from Thinkubator’s research library
+                <p className="text-sm text-green-100 hidden sm:block">
+                  Instantly search and synthesize insights from thinkubator&apos;s research library
                 </p>
               </div>
             </div>
@@ -82,7 +89,7 @@ export default function Home() {
         <div className="max-w-4xl mx-auto">
           {/* Hero Section */}
           <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold text-black mb-4">
               What do you want to know about sustainability, circularity, or the environment?
             </h2>
             <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
@@ -106,16 +113,16 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 bg-gray-50 mt-20">
+      <footer className="border-t border-gray-200 bg-[#f5f5f5] mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center text-gray-600">
             <p>
               Powered by{" "}
-              <a 
+                <a 
                 href="https://www.thinkubator.earth/" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-700 font-medium"
+                className="text-[#3E7652] hover:text-[#8FB390] font-medium"
               >
                 Thinkubator
               </a>{" "}
