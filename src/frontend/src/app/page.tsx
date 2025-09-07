@@ -76,7 +76,7 @@ export default function Home() {
                   Knowledge Explorer
                 </h1>
                 <p className="text-sm text-green-100 hidden sm:block">
-                  Instantly search and synthesize insights from thinkubator's research library
+                  Instantly search and synthesize insights from thinkubator&apos;s research library
                 </p>
               </div>
             </div>
