@@ -33,10 +33,10 @@ export function ResultsDisplay({ result, loading, error }: ResultsDisplayProps) 
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+          <div className="w-8 h-8 border-4 border-[#8FB390] border-t-transparent rounded-full animate-spin"></div>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Processing your query...</h3>
+        <h3 className="text-lg font-medium text-black mb-2">Processing your query...</h3>
         <p className="text-gray-600">Searching through circular economy knowledge base and generating insights.</p>
       </div>
     )
@@ -63,13 +63,13 @@ export function ResultsDisplay({ result, loading, error }: ResultsDisplayProps) 
   return (
     <div className="space-y-8">
       {/* Answer Section */}
-      <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-xl p-6">
+      <div className="bg-gradient-to-r from-green-50 to-green-50 border border-green-200 rounded-xl p-6">
         <div className="flex items-start mb-4">
-          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+          <div className="w-10 h-10 bg-[#8FB390] rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
             <span className="text-white font-bold">AI</span>
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-1">Answer</h2>
+            <h2 className="text-xl font-bold text-black mb-1">Answer</h2>
             <p className="text-sm text-gray-600">Generated from circular economy knowledge base</p>
           </div>
         </div>
@@ -84,7 +84,7 @@ export function ResultsDisplay({ result, loading, error }: ResultsDisplayProps) 
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <div className="flex items-center mb-6">
           <DocumentTextIcon className="h-6 w-6 text-gray-500 mr-2" />
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2 className="text-xl font-bold text-black">
             Sources ({result.chunks.length})
           </h2>
         </div>
@@ -107,10 +107,10 @@ export function ResultsDisplay({ result, loading, error }: ResultsDisplayProps) 
                   className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors duration-200 flex items-center justify-between text-left"
                 >
                   <div className="flex items-center space-x-3">
-                    <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                    <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
                       Source {index + 1}
                     </span>
-                    <span className="font-medium text-gray-900">
+                    <span className="font-medium text-black">
                       {documentName}
                     </span>
                     <span className="text-sm text-gray-500">

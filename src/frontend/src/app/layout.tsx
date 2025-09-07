@@ -5,6 +5,7 @@ import "./globals.css";
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+  weight: ["400", "700"],
 });
 
 export const metadata: Metadata = {
@@ -20,7 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} font-sans antialiased bg-gradient-to-br from-blue-50 via-white to-green-50 min-h-screen`}
+        className={`${inter.variable} font-sans antialiased bg-white min-h-screen`}
       >
         {children}
       </body>
