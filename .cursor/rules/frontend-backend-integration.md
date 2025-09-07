@@ -358,3 +358,4 @@ The frontend **MUST ALWAYS** use backend functions for RAG operations. This arch
 - **Error Resilience**: Centralized error handling and fallbacks
 
 **Remember**: Direct AI API calls from the frontend are **STRICTLY PROHIBITED**. All RAG functionality must flow through the established backend functions.
+
