@@ -66,7 +66,7 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">
-                  Thinkubator AI Knowledge Explorer
+                  Knowledge Explorer
                 </h1>
                 <p className="text-sm text-gray-600 hidden sm:block">
                   Instantly search and synthesize insights from Thinkubator’s research library
