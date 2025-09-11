@@ -25,7 +25,7 @@ echo "✅ Dependencies OK"
 # Run comprehensive setup test
 echo ""
 echo "🚀 Running comprehensive Supabase setup test..."
-python scripts/test_supabase_setup.py
+python src/backend/database/test_supabase_setup.py
 
 # Run pytest tests
 echo ""

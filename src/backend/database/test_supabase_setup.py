@@ -10,11 +10,13 @@ import logging
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Add the project root to Python path
-project_root = Path(__file__).parent.parent.absolute()
+# Add the project root to Python path (from src/backend/database/ to project root)
+# __file__ is in src/backend/database/, so we need parent.parent.parent.parent to get to project root
+current_file = Path(__file__).absolute()
+project_root = current_file.parent.parent.parent.parent  # database -> backend -> src -> project_root
 sys.path.insert(0, str(project_root))
 
-# Load environment variables
+# Load environment variables from project root
 load_dotenv(dotenv_path=project_root / '.env')
 
 # Configure logging

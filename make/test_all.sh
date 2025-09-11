@@ -20,18 +20,13 @@ echo "🧪 Running Supabase Tests..."
 echo "----------------------------"
 bash make/test_supabase.sh
 
-# Frontend tests
-echo ""
-echo "🧪 Running Frontend Tests..."
-echo "----------------------------"
-bash make/test_frontend.sh
+# Frontend tests removed for Docker architecture
 
 echo ""
-echo "🎉 ALL TESTS COMPLETED!"
-echo "======================"
+echo "🎉 ALL BACKEND TESTS COMPLETED!"
+echo "==============================="
 echo ""
 echo "✅ Backend tests: PASSED"
 echo "✅ Supabase tests: PASSED"  
-echo "✅ Frontend tests: PASSED"
 echo ""
-echo "Your application is ready for deployment! 🚀"
+echo "Your backend is ready for Docker containerization! 🐳"

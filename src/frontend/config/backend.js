@@ -8,7 +8,7 @@ const config = {
   
   // Environment-specific configurations
   development: 'http://localhost:8000',
-  production: process.env.BACKEND_URL || 'https://your-backend-api.vercel.app',
+  production: process.env.BACKEND_URL || 'http://backend:8000',
   
   // Fallback behavior
   fallbackToMock: true,

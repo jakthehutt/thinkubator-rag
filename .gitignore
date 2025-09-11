@@ -15,6 +15,7 @@ pip-wheel-metadata/
 *.egg
 dist/
 build/
+.pytest_cache/
 
 # Node.js / Frontend
 node_modules/
@@ -52,3 +53,7 @@ chroma_db/
 *.tmp
 *.temp
 .vercel
+
+
+# Imports for me to use later
+temp/
