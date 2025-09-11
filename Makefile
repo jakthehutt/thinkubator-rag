@@ -1,4 +1,4 @@
-.PHONY: test-chunking test-storing test-retrieving test-generation test-e2e-rag test-supabase test-api test-all ingest-pdfs dev prod stop build logs test-docker clean-docker
+.PHONY: test-chunking test-storing test-retrieving test-generation test-e2e-rag test-supabase test-api test-all ingest-pdfs setup-users test-users query-users dev prod stop build logs test-docker clean-docker
 
 # Backend tests
 test-chunking:
@@ -31,6 +31,21 @@ test-all:
 # Utilities
 ingest-pdfs:
 	@bash make/ingest_pdfs.sh
+
+# Setup users table with mock data
+setup-users:
+	@echo "👥 Setting up users table..."
+	cd src/backend/database && python setup_users_table.py
+
+# Test users table
+test-users:
+	@echo "🧪 Testing users table..."
+	cd src/backend && python -m pytest tests/test_users_table.py -v
+
+# Query and display users
+query-users:
+	@echo "👥 Displaying users table..."
+	cd src/backend/database && python query_users.py
 
 # === DOCKER COMMANDS ===
 
