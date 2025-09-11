@@ -1,0 +1,86 @@
+services:
+  # === RAG BACKEND SERVICE (DEBUG) ===
+  backend:
+    build: 
+      context: .
+      dockerfile: src/backend/Dockerfile
+    container_name: rag-backend-debug
+    ports:
+      - "8001:8000"   # API port
+      - "5679:5678"   # Debug port for Python/FastAPI (avoid conflict)
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - DEBUG=True
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=debug
+      - HOST=0.0.0.0
+      - PORT=8000
+      # Supabase Configuration
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - POSTGRES_URL_NON_POOLING=${POSTGRES_URL_NON_POOLING}
+      # AI Configuration
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - ./data:/app/data
+      - ./src/backend:/app/src/backend  # Mount for live debugging
+      - ./src/backend/logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - rag-network
+    # Enable debug mode - debugger can attach anytime
+    command: python -u -m debugpy --listen 0.0.0.0:5678 --wait-for-client src/backend/main.py
+    
+  # === FRONTEND SERVICE (DEBUG) ===  
+  frontend:
+    build:
+      context: src/frontend
+      dockerfile: Dockerfile.dev
+    container_name: rag-frontend-debug
+    ports:
+      - "3001:3000"   # Frontend port
+      - "9229:9229"   # Node.js debug port
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+      - BACKEND_URL=http://backend:8000
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:8001
+      - DEBUG=1
+    volumes:
+      - ./src/frontend/src:/app/src      # Mount for hot reload
+      - ./src/frontend/public:/app/public
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - rag-network
+    # Enable Node.js debugging
+    command: sh -c "npm run dev"
+
+  # === OPTIONAL: REDIS FOR FUTURE CELERY INTEGRATION ===
+  redis:
+    image: redis:7-alpine
+    container_name: rag-redis-debug
+    ports:
+      - "6380:6379"   # Redis port for debugging (avoid conflict)
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - rag-network
+
+volumes:
+  redis_data:
+
+networks:
+  rag-network:
+    driver: bridge

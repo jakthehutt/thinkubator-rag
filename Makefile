@@ -73,6 +73,32 @@ test-docker:
 test-frontend:
 	@bash make/test_frontend.sh
 
+# === DEBUGGING COMMANDS ===
+
+# Start debug environment
+debug:
+	@echo "🐛 Starting debug environment..."
+	docker compose -f docker-compose-debug.yml up --build -d
+	@echo "✅ Debug environment running at:"
+	@echo "   - Backend:  http://localhost:8001 (Debug: 5679)"
+	@echo "   - Frontend: http://localhost:3001 (Debug: 9229)"
+	@echo "   - Health:   http://localhost:8001/health"
+	@echo ""
+	@echo "🔍 VS Code Debug Instructions:"
+	@echo "   1. Set breakpoints in your code"
+	@echo "   2. Press Ctrl+Shift+D (Run and Debug)"
+	@echo "   3. Select '🐍 Debug RAG Backend' or '🔗 Debug Full Stack'"
+	@echo "   4. Press F5 to start debugging"
+
+# Stop debug environment
+debug-stop:
+	@echo "🛑 Stopping debug environment..."
+	docker compose -f docker-compose-debug.yml down
+
+# Debug logs
+debug-logs:
+	docker compose -f docker-compose-debug.yml logs -f
+
 # Clean Docker environment
 clean-docker:
 	@echo "🧹 Cleaning Docker environment..."
