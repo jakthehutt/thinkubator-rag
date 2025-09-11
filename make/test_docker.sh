@@ -117,7 +117,7 @@ echo "✅ Backend API responding"
 # Test frontend (if accessible)
 echo ""
 echo "🌐 Testing frontend..."
-FRONTEND_HEALTH=$(curl -s -w "%{http_code}" -o /dev/null "http://localhost:3000/" || echo "000")
+FRONTEND_HEALTH=$(curl -s -w "%{http_code}" -o /dev/null "http://localhost:3001/" || echo "000")
 
 if [ "$FRONTEND_HEALTH" != "200" ]; then
     echo "⚠️  Frontend not accessible (HTTP $FRONTEND_HEALTH) - this might be normal if still building"

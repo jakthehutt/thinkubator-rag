@@ -26,3 +26,7 @@ requests-mock>=1.10.0
 
 # === UTILITIES ===
 requests>=2.30.0
+numpy>=1.24.0
+
+# === DATA SCIENCE ===
+pandas>=2.0.0

@@ -42,7 +42,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: rag-frontend-dev
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
@@ -51,8 +51,7 @@ services:
       - ./src/frontend/src:/app/src  # Mount for hot reload
       - ./src/frontend/public:/app/public
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     restart: unless-stopped
     networks:
       - rag-network

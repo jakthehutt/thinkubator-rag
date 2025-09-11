@@ -40,7 +40,7 @@ dev:
 	docker compose up --build -d
 	@echo "✅ Development environment running at:"
 	@echo "   - Backend:  http://localhost:8001"
-	@echo "   - Frontend: http://localhost:3000"
+	@echo "   - Frontend: http://localhost:3001"
 	@echo "   - Health:   http://localhost:8001/health"
 
 # Production environment  
