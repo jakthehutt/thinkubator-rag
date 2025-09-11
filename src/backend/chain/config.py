@@ -11,7 +11,6 @@ import logging
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 PROMPT_DIR = os.path.join(PROJECT_ROOT, "src", "backend", "prompt")
-CHROMA_DB_PATH = os.path.join(PROJECT_ROOT, "data", "processed", "chroma_db")
 
 CHUNKING_PROMPT_PATH = os.path.join(PROMPT_DIR, "chunking_prompt.txt")
 CHUNK_SUMMARY_PROMPT_PATH = os.path.join(PROMPT_DIR, "chunk_summary_prompt.txt")

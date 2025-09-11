@@ -33,9 +33,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # sys.path.insert(0, project_root) # Removed
 
 # Rely on direct import now that package structure should be resolvable by python path
-from src.backend.chain.rag_pipeline_supabase import RAGPipelineSupabase
+from src.backend.chain.rag_pipeline import RAGPipeline
 from src.backend.chain.config import (
-    CHROMA_DB_PATH,
+    PROJECT_ROOT,
 )
 
 def save_processed_document_to_json(document_name: str, full_text: str, page_texts: List[Tuple[int, str]], 
@@ -110,7 +110,7 @@ def ingest_all_pdfs(pdf_directory: str = "./data/pdfs", api_key: str = None):
         raise ValueError("GEMINI_API_KEY is required for ingestion.")
     
     logging.info("API key found, initializing pipeline...")
-    pipeline = RAGPipelineSupabase(api_key=api_key)
+    pipeline = RAGPipeline(api_key=api_key)
     
     # Note: No longer creating ChromaDB directories as we use Supabase
     if not os.path.exists(pdf_directory):
@@ -159,7 +159,7 @@ def ingest_all_pdfs(pdf_directory: str = "./data/pdfs", api_key: str = None):
                 document_summary, chunk_summaries
             )
             
-            # Use the RAGPipeline's built-in ingest_pdf method for ChromaDB storage
+            # Use the RAGPipeline's built-in ingest_pdf method for Supabase storage
             general_metadata = {
                 "source_file": filename,
                 "source_directory": pdf_directory,

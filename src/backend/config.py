@@ -4,7 +4,7 @@ import os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 PROMPT_DIR = os.path.join(BASE_DIR, "prompt")
-CHROMA_DB_PATH = os.path.join(BASE_DIR, "..", "..", "data", "processed", "chroma_db")
+# ChromaDB path removed - now using Supabase for vector storage
 
 CHUNKING_PROMPT_PATH = os.path.join(PROMPT_DIR, "chunking_prompt.txt")
 CHUNK_SUMMARY_PROMPT_PATH = os.path.join(PROMPT_DIR, "chunk_summary_prompt.txt")

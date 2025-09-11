@@ -219,15 +219,15 @@ def test_rag_pipeline():
         return True  # Don't fail the test for this
     
     try:
-        from src.backend.chain.rag_pipeline_supabase import RAGPipelineSupabase
+        from src.backend.chain.rag_pipeline import RAGPipeline
         
         # Create RAG pipeline
-        pipeline = RAGPipelineSupabase(
+        pipeline = RAGPipeline(
             api_key=gemini_key,
             table_name="test_rag_embeddings",
             embedding_dimension=768  # Gemini embedding dimension
         )
-        print("✅ RAGPipelineSupabase initialized successfully")
+        print("✅ RAGPipeline initialized successfully")
         
         # Get pipeline info
         info = pipeline.get_pipeline_info()

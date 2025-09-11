@@ -18,9 +18,9 @@ def mock_rag_pipeline():
         'SUPABASE_SERVICE_ROLE_KEY': 'test_key',
         'POSTGRES_URL_NON_POOLING': 'postgresql://test@localhost/test'
     }, clear=False):
-        with patch('src.backend.chain.rag_pipeline_supabase.genai') as mock_genai:
-            with patch('src.backend.chain.rag_pipeline_supabase.GoogleGenerativeAIEmbeddings') as mock_embeddings:
-                with patch('src.backend.chain.rag_pipeline_supabase.SupabaseVectorStore') as mock_vector_store_class:
+        with patch('src.backend.chain.rag_pipeline.genai') as mock_genai:
+            with patch('src.backend.chain.rag_pipeline.GoogleGenerativeAIEmbeddings') as mock_embeddings:
+                with patch('src.backend.chain.rag_pipeline.SupabaseVectorStore') as mock_vector_store_class:
                     
                     # Mock the genai.configure call
                     mock_genai.configure = MagicMock()
@@ -60,7 +60,7 @@ def mock_rag_pipeline():
                     }
                     
                     # Import and create RAG pipeline with a test API key
-                    from src.backend.chain.rag_pipeline_supabase import RAGPipelineSupabase
-                    pipeline = RAGPipelineSupabase(api_key="test_api_key")
+                    from src.backend.chain.rag_pipeline import RAGPipeline
+                    pipeline = RAGPipeline(api_key="test_api_key")
                     
                     yield pipeline, mock_gen_model, mock_vector_store

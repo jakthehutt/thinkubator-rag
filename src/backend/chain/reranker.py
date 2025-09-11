@@ -33,23 +33,23 @@ class NoReranker(BaseReranker):
     """
     Version 1: No Reranking
     
-    Simply formats ChromaDB results without additional reranking.
-    Uses the vector similarity scores from ChromaDB directly.
+    Simply formats Supabase vector store results without additional reranking.
+    Uses the vector similarity scores from pgvector directly.
     
     Pros: Fast, simple, relies on high-quality embeddings
     Cons: May miss important contextual relevance signals
     """
     
     def __init__(self):
-        logging.info("NoReranker initialized - using ChromaDB vector similarity only")
+        logging.info("NoReranker initialized - using Supabase vector similarity only")
     
     def rerank(self, query: str, retrieved_results: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        Format ChromaDB results without reranking.
+        Format Supabase vector store results without reranking.
         
         Args:
             query (str): User query (not used in this version)
-            retrieved_results (dict): Raw results from ChromaDB
+            retrieved_results (dict): Raw results from Supabase vector store
             
         Returns:
             List[Dict]: Formatted results in original order
@@ -73,7 +73,7 @@ class NoReranker(BaseReranker):
     def get_version_info(self) -> Dict[str, str]:
         return {
             "version": "1.0 - No Reranking",
-            "features": "Direct ChromaDB vector similarity",
+            "features": "Direct Supabase vector similarity",
             "overhead": "None (~0ms)",
             "use_case": "Fast retrieval with high-quality embeddings"
         }

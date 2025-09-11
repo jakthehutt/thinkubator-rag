@@ -37,7 +37,7 @@ python -c "
 import sys
 sys.path.insert(0, '.')
 try:
-    from src.backend.chain.rag_pipeline_supabase import RAGPipelineSupabase
+    from src.backend.chain.rag_pipeline import RAGPipeline
     print('✅ RAG pipeline imports working')
 except Exception as e:
     print(f'❌ RAG pipeline import failed: {e}')

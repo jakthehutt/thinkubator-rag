@@ -16,7 +16,7 @@ project_root = Path(__file__).parent.parent.parent.absolute()
 sys.path.insert(0, str(project_root))
 
 # Import the unified RAG pipeline
-from src.backend.chain.rag_pipeline_supabase import RAGPipelineSupabase
+from src.backend.chain.rag_pipeline import RAGPipeline
 
 class UnifiedRAGHandler:
     """Unified RAG handler that works in both FastAPI and Vercel environments."""
@@ -28,7 +28,7 @@ class UnifiedRAGHandler:
     def _initialize_pipeline(self):
         """Initialize the RAG pipeline."""
         try:
-            self.rag_pipeline = RAGPipelineSupabase()
+            self.rag_pipeline = RAGPipeline()
             print("✅ RAG pipeline initialized successfully")
         except Exception as e:
             print(f"❌ Failed to initialize RAG pipeline: {e}")

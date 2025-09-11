@@ -6,7 +6,7 @@ from src.backend.chain.rag_pipeline import RAGPipeline
 def test_e2e_rag_pipeline():
     """
     End-to-end test for the RAG pipeline.
-    This test assumes the ChromaDB has been populated by running the ingest_documents.py script.
+    This test assumes the Supabase vector store has been populated by running the ingest_documents.py script.
     It makes a live call to the Gemini API for generation.
     """
     # Ensure GEMINI_API_KEY is set in the environment for the live API call
@@ -14,8 +14,8 @@ def test_e2e_rag_pipeline():
     if not gemini_api_key:
         pytest.skip("GEMINI_API_KEY environment variable not set. Skipping E2E test.")
 
-    # Instantiate the RAGPipeline with the path to the populated ChromaDB
-    # It will use the default paths from config.py
+    # Instantiate the RAGPipeline with Supabase vector store
+    # It will use the default configuration for Supabase
     pipeline = RAGPipeline()
 
     # A sample query that should retrieve relevant information from the ingested documents
