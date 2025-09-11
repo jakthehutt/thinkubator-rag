@@ -21,6 +21,8 @@ interface ResultsDisplayProps {
 export function ResultsDisplay({ result, loading, error }: ResultsDisplayProps) {
   const [expandedChunks, setExpandedChunks] = useState<Set<number>>(new Set())
   const [copied, setCopied] = useState(false)
+  const [chunkCopied, setChunkCopied] = useState<Set<number>>(new Set())
+  const [metadataCopied, setMetadataCopied] = useState<Set<string>>(new Set())
 
   // Log component mount and state changes
   useEffect(() => {
@@ -96,6 +98,60 @@ export function ResultsDisplay({ result, loading, error }: ResultsDisplayProps) 
       logger.error('ui', '❌ Failed to copy answer to clipboard', { error })
       logUserAction('answer_copy_failed', { error: error instanceof Error ? error.message : 'Unknown error' })
     }
+  }
+
+  const copyChunkToClipboard = async (chunkIndex: number, content: string) => {
+    try {
+      // Clean content by removing <chunk> tags
+      const cleanContent = content.replace(/<\/?chunk>/g, '').trim()
+      await navigator.clipboard.writeText(cleanContent)
+      
+      const newChunkCopied = new Set(chunkCopied)
+      newChunkCopied.add(chunkIndex)
+      setChunkCopied(newChunkCopied)
+      
+      logger.info('ui', '📋 Chunk copied to clipboard', { chunkIndex, contentLength: cleanContent.length })
+      logUserAction('chunk_copied', { chunkIndex, contentLength: cleanContent.length })
+      
+      // Reset copied state after 2 seconds
+      setTimeout(() => {
+        const resetChunkCopied = new Set(chunkCopied)
+        resetChunkCopied.delete(chunkIndex)
+        setChunkCopied(resetChunkCopied)
+      }, 2000)
+    } catch (error) {
+      logger.error('ui', '❌ Failed to copy chunk to clipboard', { error, chunkIndex })
+      logUserAction('chunk_copy_failed', { error: error instanceof Error ? error.message : 'Unknown error', chunkIndex })
+    }
+  }
+
+  const copyMetadataItemToClipboard = async (key: string, value: any, chunkIndex: number) => {
+    try {
+      const textValue = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)
+      await navigator.clipboard.writeText(textValue)
+      
+      const metadataKey = `${chunkIndex}-${key}`
+      const newMetadataCopied = new Set(metadataCopied)
+      newMetadataCopied.add(metadataKey)
+      setMetadataCopied(newMetadataCopied)
+      
+      logger.info('ui', '📋 Metadata item copied to clipboard', { key, chunkIndex, valueLength: textValue.length })
+      logUserAction('metadata_item_copied', { key, chunkIndex, valueLength: textValue.length })
+      
+      // Reset copied state after 2 seconds
+      setTimeout(() => {
+        const resetMetadataCopied = new Set(metadataCopied)
+        resetMetadataCopied.delete(metadataKey)
+        setMetadataCopied(resetMetadataCopied)
+      }, 2000)
+    } catch (error) {
+      logger.error('ui', '❌ Failed to copy metadata item to clipboard', { error, key, chunkIndex })
+      logUserAction('metadata_item_copy_failed', { error: error instanceof Error ? error.message : 'Unknown error', key, chunkIndex })
+    }
+  }
+
+  const cleanChunkContent = (content: string) => {
+    return content.replace(/<\/?chunk>/g, '').trim()
   }
 
   if (loading) {
@@ -214,28 +270,78 @@ export function ResultsDisplay({ result, loading, error }: ResultsDisplayProps) 
                 {isExpanded && (
                   <div className="p-4 border-t border-gray-200">
                     {/* Document Content */}
-                    <div className="mb-4">
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Content:</h4>
-                      <div className="bg-gray-50 p-3 rounded text-sm font-mono text-gray-800 whitespace-pre-wrap leading-relaxed border">
-                        {chunk.document}
+                    <div className="mb-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-medium text-gray-700">Content:</h4>
+                        <button
+                          onClick={() => copyChunkToClipboard(index, chunk.document)}
+                          className="flex items-center space-x-1 px-2 py-1 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-all duration-200"
+                          title={chunkCopied.has(index) ? 'Copied!' : 'Copy chunk content'}
+                        >
+                          {chunkCopied.has(index) ? (
+                            <>
+                              <CheckIcon className="h-3 w-3 text-green-600" />
+                              <span className="text-green-600">Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <ClipboardIcon className="h-3 w-3" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-800 whitespace-pre-wrap leading-relaxed border relative group">
+                        {cleanChunkContent(chunk.document)}
                       </div>
                     </div>
                     
                     {/* Metadata */}
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Metadata:</h4>
-                      <div className="bg-white border rounded p-3">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                          {Object.entries(metadata).map(([key, value]) => (
-                            <div key={key} className="flex flex-col">
-                              <span className="font-medium text-gray-500 uppercase tracking-wide">
-                                {key.replace(/_/g, ' ')}
-                              </span>
-                              <span className="text-gray-900 mt-1 break-words">
-                                {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
-                              </span>
-                            </div>
-                          ))}
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Metadata:</h4>
+                      <div className="bg-white border rounded-lg p-4">
+                        <div className="space-y-3">
+                          {Object.entries(metadata).map(([key, value]) => {
+                            const metadataKey = `${index}-${key}`
+                            const isMetadataCopied = metadataCopied.has(metadataKey)
+                            
+                            return (
+                              <div key={key} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center mb-1">
+                                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                                      {key.replace(/_/g, ' ')}
+                                    </span>
+                                  </div>
+                                  <div className="text-sm text-gray-900 break-words">
+                                    {typeof value === 'object' ? (
+                                      <pre className="text-xs bg-gray-100 p-2 rounded border overflow-x-auto">
+                                        {JSON.stringify(value, null, 2)}
+                                      </pre>
+                                    ) : (
+                                      <span className="font-mono">{String(value)}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => copyMetadataItemToClipboard(key, value, index)}
+                                  className="ml-3 flex items-center space-x-1 px-2 py-1 text-xs font-medium text-gray-400 hover:text-gray-600 hover:bg-white rounded transition-all duration-200 flex-shrink-0"
+                                  title={isMetadataCopied ? 'Copied!' : `Copy ${key.replace(/_/g, ' ')}`}
+                                >
+                                  {isMetadataCopied ? (
+                                    <>
+                                      <CheckIcon className="h-3 w-3 text-green-600" />
+                                      <span className="text-green-600 text-xs">✓</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ClipboardIcon className="h-3 w-3" />
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     </div>

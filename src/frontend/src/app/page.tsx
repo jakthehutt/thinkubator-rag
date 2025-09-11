@@ -253,6 +253,23 @@ export default function Home() {
     }
   }
 
+  const handleSessionDeleted = (sessionId: string) => {
+    logger.info('ui', '🗑️ Session deleted, updating UI', { sessionId })
+    
+    // If the deleted session is currently selected, clear the results
+    if (selectedSessionId === sessionId) {
+      setResult(null)
+      setSelectedSessionId(undefined)
+      setError(null)
+      logger.info('ui', '🗑️ Cleared currently selected session', { sessionId })
+    }
+    
+    logUserAction('session_deleted_ui_updated', { 
+      sessionId, 
+      wasSelected: selectedSessionId === sessionId 
+    })
+  }
+
   return (
     <div className="h-screen flex flex-col">
       {/* Header */}
@@ -289,6 +306,7 @@ export default function Home() {
           onSessionSelect={handleSessionSelect}
           selectedSessionId={selectedSessionId}
           refreshTrigger={sidebarRefreshTrigger}
+          onSessionDeleted={handleSessionDeleted}
         />
 
         {/* Main Content */}

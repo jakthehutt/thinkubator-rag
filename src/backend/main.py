@@ -310,6 +310,45 @@ async def get_session(session_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get session: {str(e)}")
 
+@app.delete("/session/{session_id}")
+async def delete_session(session_id: str):
+    """Delete a specific session by ID. Only allows deleting user's own sessions."""
+    global query_storage
+    
+    # Initialize storage if not available
+    if not query_storage:
+        try:
+            logger.info("🔄 Initializing query storage on demand...")
+            query_storage = QueryStorageService()
+            logger.info("✅ Query storage initialized on demand")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize query storage on demand: {e}")
+            raise HTTPException(status_code=503, detail="Storage service initialization failed")
+    
+    try:
+        # Get current user for security
+        user = user_service.get_mock_user()
+        
+        # Delete session with user_id check for security
+        success = query_storage.delete_session(session_id, user_id=user.id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Session not found or access denied")
+        
+        logger.info(f"Session {session_id} deleted by user {user.id}")
+        
+        return {
+            "message": "Session deleted successfully",
+            "session_id": session_id,
+            "deleted_by": user.id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete session: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     

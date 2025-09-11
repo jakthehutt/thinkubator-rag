@@ -336,6 +336,45 @@ class QueryStorageService:
             logger.error(f"Failed to search query sessions: {e}")
             raise
     
+    def delete_session(self, session_id: str, user_id: str = None) -> bool:
+        """
+        Delete a query session by ID.
+        
+        Args:
+            session_id: The session ID to delete
+            user_id: Optional user ID for additional security (ensures user can only delete their own sessions)
+            
+        Returns:
+            bool: True if deleted successfully, False if session not found
+        """
+        try:
+            with self._get_postgres_connection() as conn:
+                with conn.cursor() as cursor:
+                    # Build query with optional user_id check for security
+                    if user_id:
+                        cursor.execute(f"""
+                            DELETE FROM {self.table_name}
+                            WHERE id = %s AND user_id = %s
+                        """, (session_id, user_id))
+                    else:
+                        cursor.execute(f"""
+                            DELETE FROM {self.table_name}
+                            WHERE id = %s
+                        """, (session_id,))
+                    
+                    deleted_count = cursor.rowcount
+                    
+                    if deleted_count > 0:
+                        logger.info(f"Successfully deleted session {session_id}")
+                        return True
+                    else:
+                        logger.warning(f"Session {session_id} not found or access denied")
+                        return False
+                        
+        except Exception as e:
+            logger.error(f"Failed to delete session {session_id}: {e}")
+            raise
+
     def get_user_sessions(self, user_id: str, limit: int = 50) -> List[QuerySession]:
         """
         Get all query sessions for a specific user.

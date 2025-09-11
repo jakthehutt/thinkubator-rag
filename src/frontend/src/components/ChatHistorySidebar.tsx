@@ -20,14 +20,17 @@ interface ChatHistorySidebarProps {
   selectedSessionId?: string
   refreshTrigger?: number // Used to trigger refresh from parent
   clearLoadingSession?: () => void // Callback to clear loading state
+  onSessionDeleted?: (sessionId: string) => void // Callback when session is deleted
 }
 
-export function ChatHistorySidebar({ onSessionSelect, selectedSessionId, refreshTrigger, clearLoadingSession }: ChatHistorySidebarProps) {
+export function ChatHistorySidebar({ onSessionSelect, selectedSessionId, refreshTrigger, clearLoadingSession, onSessionDeleted }: ChatHistorySidebarProps) {
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null)
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
 
   const getBackendUrl = (): string => {
     if (typeof window !== 'undefined') {
@@ -92,6 +95,53 @@ export function ChatHistorySidebar({ onSessionSelect, selectedSessionId, refresh
     setTimeout(() => {
       setLoadingSessionId(null)
     }, 5000)
+  }
+
+  const handleDeleteClick = (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation() // Prevent session selection
+    logger.info('ui', '🗑️ Delete chat session requested', { sessionId })
+    setShowDeleteConfirm(sessionId)
+  }
+
+  const confirmDelete = async (sessionId: string) => {
+    setDeletingSessionId(sessionId)
+    setShowDeleteConfirm(null)
+    
+    try {
+      logger.info('ui', '🗑️ Deleting chat session...', { sessionId })
+      const backendUrl = getBackendUrl()
+      
+      const response = await fetch(`${backendUrl}/session/${sessionId}`, {
+        method: 'DELETE',
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Failed to delete session: ${response.status} ${response.statusText}`)
+      }
+      
+      logger.info('ui', '✅ Chat session deleted successfully', { sessionId })
+      logUserAction('delete_chat_session', { sessionId })
+      
+      // Remove session from local state
+      setSessions(prev => prev.filter(session => session.id !== sessionId))
+      
+      // Notify parent component
+      if (onSessionDeleted) {
+        onSessionDeleted(sessionId)
+      }
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete session'
+      logger.error('ui', '❌ Failed to delete chat session', { error: errorMessage, sessionId })
+      setError(`Failed to delete conversation: ${errorMessage}`)
+    } finally {
+      setDeletingSessionId(null)
+    }
+  }
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(null)
+    logger.info('ui', '❌ Delete chat session cancelled')
   }
 
   const formatDate = (dateString: string) => {
@@ -226,46 +276,101 @@ export function ChatHistorySidebar({ onSessionSelect, selectedSessionId, refresh
         ) : (
           <div className="p-2">
             {sessions.map((session) => (
-              <div
-                key={session.id}
-                onClick={() => handleSessionClick(session)}
-                className={`mb-2 p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
-                  selectedSessionId === session.id
-                    ? 'border-green-500 bg-green-50 shadow-sm'
-                    : 'border-gray-200 hover:border-green-300 hover:bg-gray-50'
-                } ${loadingSessionId === session.id ? 'opacity-60' : ''}`}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1 min-w-0 flex items-center">
-                    {loadingSessionId === session.id && (
-                      <div className="animate-spin rounded-full h-3 w-3 border border-green-500 border-t-transparent mr-2 flex-shrink-0"></div>
-                    )}
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {truncateQuery(session.preview)}
-                    </p>
+              <div key={session.id} className="mb-2">
+                <div
+                  onClick={() => handleSessionClick(session)}
+                  className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md relative ${
+                    selectedSessionId === session.id
+                      ? 'border-green-500 bg-green-50 shadow-sm'
+                      : 'border-gray-200 hover:border-green-300 hover:bg-gray-50'
+                  } ${loadingSessionId === session.id ? 'opacity-60' : ''} ${
+                    deletingSessionId === session.id ? 'opacity-50' : ''
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1 min-w-0 flex items-center">
+                      {loadingSessionId === session.id && (
+                        <div className="animate-spin rounded-full h-3 w-3 border border-green-500 border-t-transparent mr-2 flex-shrink-0"></div>
+                      )}
+                      {deletingSessionId === session.id && (
+                        <div className="animate-spin rounded-full h-3 w-3 border border-red-500 border-t-transparent mr-2 flex-shrink-0"></div>
+                      )}
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {truncateQuery(session.preview)}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2 ml-2">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">
+                        {formatDate(session.created_at)}
+                      </span>
+                      <button
+                        onClick={(e) => handleDeleteClick(e, session.id)}
+                        className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors duration-200"
+                        title="Delete conversation"
+                        disabled={deletingSessionId === session.id}
+                      >
+                        {deletingSessionId === session.id ? (
+                          <div className="w-4 h-4 animate-spin border border-red-500 border-t-transparent rounded-full"></div>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
-                  <span className="ml-2 text-xs text-gray-500 whitespace-nowrap">
-                    {formatDate(session.created_at)}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span>{session.chunks_count} sources</span>
-                  <div className="flex items-center">
-                    {loadingSessionId === session.id ? (
-                      <span className="text-green-600">Loading...</span>
-                    ) : (
-                      <span>{session.processing_time_ms}ms</span>
-                    )}
+                  
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>{session.chunks_count} sources</span>
+                    <div className="flex items-center">
+                      {loadingSessionId === session.id ? (
+                        <span className="text-green-600">Loading...</span>
+                      ) : deletingSessionId === session.id ? (
+                        <span className="text-red-600">Deleting...</span>
+                      ) : (
+                        <span>{session.processing_time_ms}ms</span>
+                      )}
+                    </div>
                   </div>
+                  
+                  {session.user_name && (
+                    <div className="mt-1 flex items-center text-xs text-gray-400">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                      </svg>
+                      {session.user_name}
+                    </div>
+                  )}
                 </div>
-                
-                {session.user_name && (
-                  <div className="mt-1 flex items-center text-xs text-gray-400">
-                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                    </svg>
-                    {session.user_name}
+
+                {/* Delete Confirmation Dialog */}
+                {showDeleteConfirm === session.id && (
+                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-start space-x-2">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-red-800 font-medium mb-1">Delete this conversation?</p>
+                        <p className="text-xs text-red-600 mb-3">This action cannot be undone.</p>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => confirmDelete(session.id)}
+                            className="px-3 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors duration-200"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={cancelDelete}
+                            className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded transition-colors duration-200"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
