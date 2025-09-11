@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronDownIcon, ChevronUpIcon, DocumentTextIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import { logger, logUserAction } from '@/utils/logger'
 
 interface QueryResult {
   answer: string
@@ -20,14 +21,58 @@ interface ResultsDisplayProps {
 export function ResultsDisplay({ result, loading, error }: ResultsDisplayProps) {
   const [expandedChunks, setExpandedChunks] = useState<Set<number>>(new Set())
 
+  // Log component mount and state changes
+  useEffect(() => {
+    logger.info('ui', '📊 ResultsDisplay component mounted')
+  }, [])
+
+  useEffect(() => {
+    if (loading) {
+      logger.info('ui', '⏳ Results display showing loading state')
+      logUserAction('results_loading_started')
+    }
+  }, [loading])
+
+  useEffect(() => {
+    if (error) {
+      logger.error('ui', '❌ Results display showing error', { error })
+      logUserAction('results_error_displayed', { error })
+    }
+  }, [error])
+
+  useEffect(() => {
+    if (result) {
+      logger.info('ui', '✅ Results display showing results', { 
+        answerLength: result.answer?.length || 0,
+        chunksCount: result.chunks?.length || 0
+      })
+      logUserAction('results_displayed', { 
+        answerLength: result.answer?.length || 0,
+        chunksCount: result.chunks?.length || 0
+      })
+    }
+  }, [result])
+
   const toggleChunk = (index: number) => {
     const newExpanded = new Set(expandedChunks)
+    const isExpanding = !newExpanded.has(index)
+    
     if (newExpanded.has(index)) {
       newExpanded.delete(index)
     } else {
       newExpanded.add(index)
     }
     setExpandedChunks(newExpanded)
+    
+    logger.info('ui', `📖 Source chunk ${isExpanding ? 'expanded' : 'collapsed'}`, { 
+      chunkIndex: index,
+      action: isExpanding ? 'expand' : 'collapse',
+      totalExpanded: newExpanded.size
+    })
+    logUserAction(`source_chunk_${isExpanding ? 'expanded' : 'collapsed'}`, { 
+      chunkIndex: index,
+      totalExpanded: newExpanded.size
+    })
   }
 
   if (loading) {

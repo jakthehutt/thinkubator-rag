@@ -1,9 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { QueryInterface } from '@/components/QueryInterface'
 import { ResultsDisplay } from '@/components/ResultsDisplay'
+import { logger, logApiRequest, logApiResponse, logNetworkError, logUserAction, logPerformance } from '@/utils/logger'
+import { connectionTester, testBackendHealth } from '@/utils/connectionTest'
+import { performanceMonitor, trackApiCall } from '@/utils/performanceMonitor'
 
 export interface QueryResult {
   answer: string
@@ -17,46 +20,178 @@ export default function Home() {
   const [result, setResult] = useState<QueryResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [backendStatus, setBackendStatus] = useState<'unknown' | 'healthy' | 'unhealthy'>('unknown')
+  const [connectionDetails, setConnectionDetails] = useState<any>(null)
+
+  // Initialize logging and connection testing on component mount
+  useEffect(() => {
+    logger.info('ui', '🏠 Home component mounted')
+    logUserAction('page_load', { url: window.location.href })
+    
+    // Test backend connection on mount
+    const initializeConnection = async () => {
+      logger.info('network', '🔌 Initializing backend connection...')
+      const healthResult = await testBackendHealth()
+      
+      setBackendStatus(healthResult.status)
+      setConnectionDetails({
+        backendUrl: connectionTester.getBackendUrl(),
+        responseTime: healthResult.responseTime,
+        service: healthResult.service,
+        pipeline_initialized: healthResult.pipeline_initialized,
+        lastChecked: new Date().toISOString()
+      })
+      
+      logger.backendHealth(healthResult.status, healthResult)
+    }
+    
+    initializeConnection()
+    
+    return () => {
+      logger.info('ui', '🏠 Home component unmounting')
+    }
+  }, [])
 
   const handleQuery = async (query: string) => {
-    console.log('🔍 Starting query:', query)
+    const queryId = logger.generateQueryId()
+    const startTime = performance.now()
+    
+    logger.info('ui', '🔍 Starting new query', { query, queryId }, queryId)
+    logUserAction('start_query', { query, queryId })
+    
     setLoading(true)
     setError(null)
     setResult(null)
 
     try {
-      console.log('📡 Making API request...')
       // Get backend URL from environment or config
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'
       const apiUrl = `${backendUrl}/query`
-      console.log('🌐 Backend URL:', apiUrl)
       
+      logger.info('network', '🌐 Using backend URL', { backendUrl, apiUrl }, queryId)
+      
+      // Log API request
+      logApiRequest('POST', apiUrl, { query }, queryId)
+      
+      const requestStartTime = performance.now()
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({ query }),
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(60000) // 60 second timeout
       })
 
-      console.log('📊 Response status:', response.status)
-      console.log('📊 Response ok:', response.ok)
+      const responseTime = Math.round(performance.now() - requestStartTime)
+      
+      logger.info('api', '📊 Received response', { 
+        status: response.status, 
+        ok: response.ok, 
+        statusText: response.statusText,
+        responseTime 
+      }, queryId)
 
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error('❌ API Error:', errorData)
-        throw new Error(errorData.detail || `Server error: ${response.status}`)
+        let errorData: any
+        try {
+          errorData = await response.json()
+        } catch {
+          errorData = { detail: `HTTP ${response.status}: ${response.statusText}` }
+        }
+        
+        logApiResponse(response.status, apiUrl, responseTime, errorData, queryId)
+        logger.error('api', '❌ API request failed', { 
+          status: response.status, 
+          errorData, 
+          query 
+        }, queryId)
+        
+        throw new Error(errorData.detail || `Server error: ${response.status} - ${response.statusText}`)
       }
 
       const data = await response.json()
-      console.log('✅ API Success:', data)
+      const totalTime = Math.round(performance.now() - startTime)
+      
+      // Log successful response with detailed metrics
+      logApiResponse(response.status, apiUrl, responseTime, {
+        answerLength: data.answer?.length || 0,
+        chunksCount: data.chunks?.length || 0,
+        processingTime: data.processing_time_ms || 'unknown',
+        sessionId: data.session_id || null
+      }, queryId)
+      
+      // Track API call performance
+      trackApiCall(responseTime, '/query', true)
+      
+      // Log performance metrics
+      logPerformance('complete_query', totalTime, {
+        networkTime: responseTime,
+        processingTime: data.processing_time_ms,
+        answerLength: data.answer?.length,
+        chunksCount: data.chunks?.length
+      }, queryId)
+      
+      logger.info('api', '✅ Query completed successfully', { 
+        totalTime,
+        networkTime: responseTime,
+        answerLength: data.answer?.length || 0,
+        chunksCount: data.chunks?.length || 0
+      }, queryId)
+      
+      logUserAction('query_success', { 
+        query,
+        totalTime,
+        answerLength: data.answer?.length,
+        chunksCount: data.chunks?.length 
+      })
+      
       setResult(data)
-    } catch (err) {
-      console.error('💥 Query Error:', err)
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
+      
+    } catch (err: any) {
+      const totalTime = Math.round(performance.now() - startTime)
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred'
+      
+      // Log network errors vs API errors differently  
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'
+      const apiUrl = `${backendUrl}/query`
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        logNetworkError(apiUrl, err, queryId)
+        logger.error('network', '🔌 Network connection failed', { 
+          error: errorMessage, 
+          query, 
+          backendUrl,
+          totalTime 
+        }, queryId)
+      } else {
+        logger.error('api', '💥 Query processing failed', { 
+          error: errorMessage, 
+          query, 
+          totalTime 
+        }, queryId)
+      }
+      
+      logUserAction('query_error', { query, error: errorMessage, totalTime })
+      
+      // Track failed API call performance
+      trackApiCall(totalTime, '/query', false)
+      
+      // Enhanced error message based on error type
+      let enhancedError = errorMessage
+      if (err.name === 'AbortError') {
+        enhancedError = 'Query timed out. Please try again with a shorter question.'
+      } else if (err.message.includes('fetch')) {
+        enhancedError = 'Unable to connect to the backend. Please check if the service is running.'
+      }
+      
+      setError(enhancedError)
+      
     } finally {
       setLoading(false)
-      console.log('🏁 Query completed')
+      const totalTime = Math.round(performance.now() - startTime)
+      logger.info('ui', '🏁 Query processing completed', { totalTime }, queryId)
     }
   }
 
@@ -101,6 +236,31 @@ export default function Home() {
               Ask anything and recieve a reliable answer generated from 750+ reports and scientific documents.
             </p>
           </div>
+
+          {/* Connection Status (Development Only) */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mb-6 p-3 bg-gray-50 rounded-lg border">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    backendStatus === 'healthy' ? 'bg-green-500' : 
+                    backendStatus === 'unhealthy' ? 'bg-red-500' : 'bg-yellow-500'
+                  }`}></div>
+                  <span className="font-medium">Backend Status: {backendStatus}</span>
+                </div>
+                {connectionDetails && (
+                  <div className="text-gray-600">
+                    {connectionDetails.backendUrl} ({connectionDetails.responseTime}ms)
+                  </div>
+                )}
+              </div>
+              {connectionDetails?.pipeline_initialized === false && (
+                <div className="mt-2 text-xs text-yellow-700 bg-yellow-100 p-2 rounded">
+                  ⚠️ RAG pipeline not fully initialized
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Query Interface */}
           <QueryInterface 
