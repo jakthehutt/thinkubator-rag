@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { QueryInterface } from '@/components/QueryInterface'
 import { ResultsDisplay } from '@/components/ResultsDisplay'
+import { ChatHistorySidebar, ChatSession } from '@/components/ChatHistorySidebar'
 import { logger, logApiRequest, logApiResponse, logNetworkError, logUserAction, logPerformance } from '@/utils/logger'
 import { performanceMonitor, trackApiCall } from '@/utils/performanceMonitor'
 
@@ -13,12 +14,20 @@ export interface QueryResult {
     document: string
     metadata: Record<string, string | number | boolean | null>
   }>
+  session_id?: string
+  user?: {
+    id: string
+    name: string
+    email: string
+  }
 }
 
 export default function Home() {
   const [result, setResult] = useState<QueryResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined)
+  const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState<number>(0)
 
   // Initialize logging and connection testing on component mount
   useEffect(() => {
@@ -46,12 +55,13 @@ export default function Home() {
     const queryId = logger.generateQueryId()
     const startTime = performance.now()
     
-    logger.info('ui', '🔍 Starting new query', { query, queryId }, queryId)
+    logger.info('ui', '🔍 Starting new chat conversation', { query, queryId }, queryId)
     logUserAction('start_query', { query, queryId })
     
     setLoading(true)
     setError(null)
     setResult(null)
+    setSelectedSessionId(undefined) // Clear current session - start fresh chat
 
     try {
       // Get backend URL with context-aware fallback
@@ -140,6 +150,14 @@ export default function Home() {
       
       setResult(data)
       
+      // Update selected session ID if a new session was created
+      if (data.session_id) {
+        setSelectedSessionId(data.session_id)
+        // Refresh sidebar to show the new chat conversation
+        setSidebarRefreshTrigger(prev => prev + 1)
+        logger.info('ui', '📋 New chat conversation created, refreshing sidebar', { sessionId: data.session_id }, queryId)
+      }
+      
     } catch (err: any) {
       const totalTime = Math.round(performance.now() - startTime)
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred'
@@ -185,10 +203,60 @@ export default function Home() {
     }
   }
 
+  const handleSessionSelect = async (session: ChatSession) => {
+    logger.info('ui', '📄 Loading chat session', { sessionId: session.id, query: session.preview })
+    
+    setLoading(true)
+    setError(null)
+    
+    try {
+      // Fetch complete session data with chunks and metadata
+      const backendUrl = getBackendUrl()
+      const response = await fetch(`${backendUrl}/session/${session.id}`)
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load session: ${response.status} ${response.statusText}`)
+      }
+      
+      const fullSessionData = await response.json()
+      logger.info('ui', '✅ Full session data loaded', { 
+        sessionId: session.id, 
+        chunksCount: fullSessionData.chunks?.length || 0 
+      })
+      
+      // Update the result with complete session data including chunks
+      setResult({
+        answer: fullSessionData.answer,
+        chunks: fullSessionData.chunks || [],
+        session_id: fullSessionData.id
+      })
+      
+      setSelectedSessionId(session.id)
+      
+      // Log user action for analytics
+      logUserAction('load_chat_session', {
+        sessionId: session.id,
+        query: fullSessionData.query,
+        created_at: session.created_at,
+        chunksCount: fullSessionData.chunks?.length || 0
+      })
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load chat session'
+      logger.error('ui', '❌ Failed to load chat session', { 
+        error: errorMessage, 
+        sessionId: session.id 
+      })
+      setError(`Failed to load conversation: ${errorMessage}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <div className="min-h-screen">
+    <div className="h-screen flex flex-col">
       {/* Header */}
-      <header className="border-b border-gray-200 bg-[#8FB390] sticky top-0 z-50">
+      <header className="border-b border-gray-200 bg-[#8FB390] flex-shrink-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-2">
             <div className="flex items-center space-x-4">
@@ -214,35 +282,43 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="max-w-4xl mx-auto">
-          {/* Hero Section */}
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#3E7652] mb-4">
-              What do you want to know?
-            </h2>
-            <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-              Ask anything and recieve a reliable answer generated from 750+ reports.
-            </p>
+      {/* Main Layout */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Chat History Sidebar */}
+        <ChatHistorySidebar 
+          onSessionSelect={handleSessionSelect}
+          selectedSessionId={selectedSessionId}
+          refreshTrigger={sidebarRefreshTrigger}
+        />
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Hero Section */}
+            <div className="text-center mb-12">
+              <h2 className="text-3xl sm:text-4xl font-bold text-[#3E7652] mb-4">
+                What do you want to know?
+              </h2>
+              <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+                Ask anything and recieve a reliable answer generated from 750+ reports.
+              </p>
+            </div>
+
+            {/* Query Interface */}
+            <QueryInterface 
+              onQuery={handleQuery} 
+              loading={loading}
+            />
+
+            {/* Results */}
+            <ResultsDisplay 
+              result={result}
+              loading={loading}
+              error={error}
+            />
           </div>
-
-
-          {/* Query Interface */}
-          <QueryInterface 
-            onQuery={handleQuery} 
-            loading={loading}
-          />
-
-          {/* Results */}
-          <ResultsDisplay 
-            result={result}
-            loading={loading}
-            error={error}
-          />
-        </div>
-      </main>
-
+        </main>
+      </div>
     </div>
   )
 }

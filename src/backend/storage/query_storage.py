@@ -30,6 +30,8 @@ class QuerySession:
     query: str
     answer: str
     chunks: List[Dict[str, Any]]
+    user_id: Optional[str] = None
+    user_name: Optional[str] = None
     processing_time_ms: Optional[int] = None
     created_at: Optional[datetime] = None
     metadata: Optional[Dict[str, Any]] = None
@@ -89,17 +91,59 @@ class QueryStorageService:
                             query TEXT NOT NULL,
                             answer TEXT NOT NULL,
                             chunks JSONB NOT NULL DEFAULT '[]',
+                            user_id UUID,
                             processing_time_ms INTEGER,
                             metadata JSONB DEFAULT '{{}}',
                             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                         );
                     """)
                     
+                    # Add user_id column if it doesn't exist (for existing tables)
+                    try:
+                        cursor.execute(f"""
+                            ALTER TABLE {self.table_name} 
+                            ADD COLUMN IF NOT EXISTS user_id UUID;
+                        """)
+                        logger.info("Added user_id column to existing table")
+                    except Exception as e:
+                        logger.info(f"user_id column already exists or error adding it: {e}")
+                    
+                    # Create foreign key constraint if not exists
+                    try:
+                        cursor.execute("""
+                            SELECT 1 FROM information_schema.table_constraints 
+                            WHERE constraint_name = 'fk_query_sessions_user_id' 
+                            AND table_name = 'query_sessions'
+                        """)
+                        constraint_exists = cursor.fetchone()
+                        
+                        if not constraint_exists:
+                            cursor.execute(f"""
+                                ALTER TABLE {self.table_name} 
+                                ADD CONSTRAINT fk_query_sessions_user_id 
+                                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+                            """)
+                            logger.info("Added foreign key constraint for user_id")
+                        else:
+                            logger.info("Foreign key constraint already exists")
+                    except Exception as e:
+                        logger.info(f"Error checking/adding foreign key constraint: {e}")
+                    
                     # Create indexes for better query performance
                     logger.info("Creating indexes for query sessions table...")
                     cursor.execute(f"""
                         CREATE INDEX IF NOT EXISTS {self.table_name}_created_at_idx 
                         ON {self.table_name} (created_at DESC);
+                    """)
+                    
+                    cursor.execute(f"""
+                        CREATE INDEX IF NOT EXISTS {self.table_name}_user_id_idx 
+                        ON {self.table_name} (user_id);
+                    """)
+                    
+                    cursor.execute(f"""
+                        CREATE INDEX IF NOT EXISTS {self.table_name}_user_created_idx 
+                        ON {self.table_name} (user_id, created_at DESC);
                     """)
                     
                     cursor.execute(f"""
@@ -117,6 +161,7 @@ class QueryStorageService:
                            query: str, 
                            answer: str, 
                            chunks: List[Dict[str, Any]],
+                           user_id: Optional[str] = None,
                            processing_time_ms: Optional[int] = None,
                            metadata: Optional[Dict[str, Any]] = None) -> str:
         """
@@ -126,6 +171,7 @@ class QueryStorageService:
             query: The user's query
             answer: The generated answer
             chunks: List of retrieved document chunks with metadata
+            user_id: ID of the user who made the query
             processing_time_ms: Time taken to process the query in milliseconds
             metadata: Additional metadata about the session
             
@@ -152,18 +198,19 @@ class QueryStorageService:
                     
                     cursor.execute(f"""
                         INSERT INTO {self.table_name} 
-                        (id, query, answer, chunks, processing_time_ms, metadata)
-                        VALUES (%s, %s, %s, %s, %s, %s)
+                        (id, query, answer, chunks, user_id, processing_time_ms, metadata)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """, (
                         session_id,
                         query,
                         answer,
                         json.dumps(chunks),
+                        user_id,
                         processing_time_ms,
                         json.dumps(metadata)
                     ))
                     
-                    logger.info(f"Successfully stored query session {session_id}")
+                    logger.info(f"Successfully stored query session {session_id} for user {user_id}")
                     return session_id
                     
         except Exception as e:
@@ -288,6 +335,82 @@ class QueryStorageService:
         except Exception as e:
             logger.error(f"Failed to search query sessions: {e}")
             raise
+    
+    def get_user_sessions(self, user_id: str, limit: int = 50) -> List[QuerySession]:
+        """
+        Get all query sessions for a specific user.
+        
+        Args:
+            user_id: The user's ID
+            limit: Maximum number of sessions to return
+            
+        Returns:
+            List of QuerySession objects for the user
+        """
+        try:
+            with self._get_postgres_connection() as conn:
+                with conn.cursor() as cursor:
+                    
+                    cursor.execute(f"""
+                        SELECT id, query, answer, chunks, user_id, processing_time_ms, metadata, created_at
+                        FROM {self.table_name}
+                        WHERE user_id = %s
+                        ORDER BY created_at DESC
+                        LIMIT %s
+                    """, (user_id, limit))
+                    
+                    rows = cursor.fetchall()
+                    
+                    sessions = []
+                    for row in rows:
+                        # Get user name from users table
+                        user_name = "Unknown User"
+                        try:
+                            cursor.execute("SELECT first_name, last_name FROM users WHERE id = %s", (row['user_id'],))
+                            user_data = cursor.fetchone()
+                            if user_data:
+                                user_name = f"{user_data['first_name']} {user_data['last_name']}"
+                        except Exception:
+                            pass  # Keep default user name if lookup fails
+                        
+                        # Handle chunks - might already be parsed or need JSON parsing
+                        chunks_data = row["chunks"]
+                        if chunks_data:
+                            if isinstance(chunks_data, str):
+                                chunks = json.loads(chunks_data)
+                            else:
+                                chunks = chunks_data  # Already a list/dict
+                        else:
+                            chunks = []
+                        
+                        # Handle metadata - might already be parsed or need JSON parsing  
+                        metadata_data = row["metadata"]
+                        if metadata_data:
+                            if isinstance(metadata_data, str):
+                                metadata = json.loads(metadata_data)
+                            else:
+                                metadata = metadata_data  # Already a dict
+                        else:
+                            metadata = {}
+                        
+                        session = QuerySession(
+                            id=row["id"],
+                            query=row["query"],
+                            answer=row["answer"],
+                            chunks=chunks,
+                            user_id=str(row["user_id"]) if row["user_id"] else None,
+                            user_name=user_name,
+                            processing_time_ms=row["processing_time_ms"],
+                            created_at=row["created_at"],
+                            metadata=metadata
+                        )
+                        sessions.append(session)
+                    
+                    return sessions
+                    
+        except Exception as e:
+            logger.error(f"Failed to get user sessions for user {user_id}: {e}")
+            return []
     
     def get_storage_stats(self) -> Dict[str, Any]:
         """

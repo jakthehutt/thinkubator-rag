@@ -152,6 +152,164 @@ async def get_system_info():
         logger.error(f"Error getting system info: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get system info: {str(e)}")
 
+# Import user service and storage service for new endpoints
+from src.backend.services.user_service import user_service
+from src.backend.storage.query_storage import QueryStorageService
+
+# Global query storage instance
+query_storage = None
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup."""
+    global query_storage
+    try:
+        logger.info("🚀 Initializing query storage service...")
+        query_storage = QueryStorageService()
+        logger.info("✅ Query storage service initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize query storage: {e}")
+        query_storage = None
+
+@app.get("/user/current")
+async def get_current_user():
+    """Get current user information."""
+    try:
+        # For now, return mock user
+        user = user_service.get_mock_user()
+        return {
+            "id": user.id,
+            "name": user.full_name,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get user: {str(e)}")
+
+@app.get("/user/current/sessions")
+async def get_current_user_sessions(limit: int = 50):
+    """Get all query sessions for the current user."""
+    global query_storage
+    
+    # Initialize storage if not available
+    if not query_storage:
+        try:
+            logger.info("🔄 Initializing query storage on demand...")
+            query_storage = QueryStorageService()
+            logger.info("✅ Query storage initialized on demand")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize query storage on demand: {e}")
+            raise HTTPException(status_code=503, detail="Storage service initialization failed")
+    
+    try:
+        user = user_service.get_mock_user()
+        # Instead of calling get_user_sessions, implement directly here
+        sessions = query_storage.get_user_sessions(user.id, limit)
+        
+        # Format sessions for frontend
+        formatted_sessions = []
+        for session in sessions:
+            formatted_sessions.append({
+                "id": session.id,
+                "query": session.query,
+                "answer": session.answer,
+                "user_id": session.user_id,
+                "user_name": session.user_name,
+                "processing_time_ms": session.processing_time_ms,
+                "created_at": session.created_at.isoformat() if session.created_at else None,
+                "chunks_count": len(session.chunks),
+                "preview": session.query[:100] + "..." if len(session.query) > 100 else session.query
+            })
+        
+        return {
+            "sessions": formatted_sessions,
+            "total": len(formatted_sessions),
+            "user_id": user.id
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get current user sessions: {str(e)}")
+
+@app.get("/user/{user_id}/sessions")
+async def get_user_sessions(user_id: str, limit: int = 50):
+    """Get all query sessions for a user."""
+    global query_storage
+    
+    # Initialize storage if not available
+    if not query_storage:
+        try:
+            logger.info("🔄 Initializing query storage on demand...")
+            query_storage = QueryStorageService()
+            logger.info("✅ Query storage initialized on demand")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize query storage on demand: {e}")
+            raise HTTPException(status_code=503, detail="Storage service initialization failed")
+    
+    try:
+        sessions = query_storage.get_user_sessions(user_id, limit)
+        
+        # Format sessions for frontend
+        formatted_sessions = []
+        for session in sessions:
+            formatted_sessions.append({
+                "id": session.id,
+                "query": session.query,
+                "answer": session.answer,
+                "user_id": session.user_id,
+                "user_name": session.user_name,
+                "processing_time_ms": session.processing_time_ms,
+                "created_at": session.created_at.isoformat() if session.created_at else None,
+                "chunks_count": len(session.chunks),
+                "preview": session.query[:100] + "..." if len(session.query) > 100 else session.query
+            })
+        
+        return {
+            "sessions": formatted_sessions,
+            "total": len(formatted_sessions),
+            "user_id": user_id
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get sessions: {str(e)}")
+
+@app.get("/session/{session_id}")
+async def get_session(session_id: str):
+    """Get a specific session by ID."""
+    global query_storage
+    
+    # Initialize storage if not available
+    if not query_storage:
+        try:
+            logger.info("🔄 Initializing query storage on demand...")
+            query_storage = QueryStorageService()
+            logger.info("✅ Query storage initialized on demand")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize query storage on demand: {e}")
+            raise HTTPException(status_code=503, detail="Storage service initialization failed")
+    
+    try:
+        session = query_storage.get_query_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        return {
+            "id": session.id,
+            "query": session.query,
+            "answer": session.answer,
+            "chunks": session.chunks,
+            "user_id": session.user_id,
+            "user_name": session.user_name,
+            "processing_time_ms": session.processing_time_ms,
+            "created_at": session.created_at.isoformat() if session.created_at else None,
+            "metadata": session.metadata
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get session: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     

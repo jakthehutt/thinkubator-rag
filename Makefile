@@ -1,4 +1,4 @@
-.PHONY: test-chunking test-storing test-retrieving test-generation test-e2e-rag test-supabase test-api test-all ingest-pdfs setup-users test-users query-users dev prod stop build logs test-docker clean-docker
+.PHONY: test-chunking test-storing test-retrieving test-generation test-e2e-rag test-supabase test-api test-all ingest-pdfs setup-users test-users query-users migrate-user-sessions dev prod stop build logs test-docker clean-docker
 
 # Backend tests
 test-chunking:
@@ -46,6 +46,11 @@ test-users:
 query-users:
 	@echo "👥 Displaying users table..."
 	cd src/backend/database && python query_users.py
+
+# Migrate user sessions
+migrate-user-sessions:
+	@echo "🔄 Running user sessions migration..."
+	cd src/backend/database && python migrate_user_sessions.py
 
 # === DOCKER COMMANDS ===
 

@@ -17,13 +17,17 @@ sys.path.insert(0, str(project_root))
 
 # Import the unified RAG pipeline
 from src.backend.chain.rag_pipeline import RAGPipeline
+from src.backend.services.user_service import user_service, User
+from src.backend.storage.query_storage import QueryStorageService
 
 class UnifiedRAGHandler:
     """Unified RAG handler that works in both FastAPI and Vercel environments."""
     
     def __init__(self):
         self.rag_pipeline = None
+        self.storage_service = None
         self._initialize_pipeline()
+        self._initialize_storage()
     
     def _initialize_pipeline(self):
         """Initialize the RAG pipeline."""
@@ -34,8 +38,17 @@ class UnifiedRAGHandler:
             print(f"❌ Failed to initialize RAG pipeline: {e}")
             self.rag_pipeline = None
     
-    def process_query(self, query: str) -> Dict[str, Any]:
-        """Process a RAG query and return standardized response."""
+    def _initialize_storage(self):
+        """Initialize the query storage service."""
+        try:
+            self.storage_service = QueryStorageService()
+            print("✅ Query storage service initialized")
+        except Exception as e:
+            print(f"❌ Failed to initialize storage service: {e}")
+            self.storage_service = None
+    
+    def process_query(self, query: str, auth_token: Optional[str] = None) -> Dict[str, Any]:
+        """Process a RAG query with user context and return standardized response."""
         if not query or not query.strip():
             return {
                 'statusCode': 400,
@@ -49,6 +62,9 @@ class UnifiedRAGHandler:
             if not self.rag_pipeline:
                 raise Exception("RAG pipeline not initialized")
             
+            # Get current user (mock for now)
+            current_user = user_service.authenticate_user(auth_token)
+            
             # Process the query using the RAG pipeline
             chunks = self.rag_pipeline.retrieve(query, n_results=5)
             answer = self.rag_pipeline.generate_answer(query, top_k_chunks=5)
@@ -60,16 +76,39 @@ class UnifiedRAGHandler:
             formatted_chunks = []
             for chunk in chunks:
                 formatted_chunks.append({
-                    "document": chunk.get("document", ""),  # Changed from "content" to "document"
+                    "document": chunk.get("document", ""),
                     "metadata": chunk.get("metadata", {})
                 })
+            
+            # Store the session with user information
+            session_id = None
+            if self.storage_service:
+                try:
+                    session_id = self.storage_service.store_query_session(
+                        query=query,
+                        answer=answer,
+                        chunks=formatted_chunks,
+                        user_id=current_user.id,
+                        processing_time_ms=processing_time_ms,
+                        metadata={
+                            "user_name": current_user.full_name,
+                            "user_email": current_user.email
+                        }
+                    )
+                except Exception as e:
+                    print(f"Failed to store session: {e}")
             
             # Standardized response format
             response_data = {
                 "answer": answer,
                 "chunks": formatted_chunks,
-                "session_id": None,  # TODO: Implement session storage
-                "processing_time_ms": processing_time_ms
+                "session_id": session_id,
+                "processing_time_ms": processing_time_ms,
+                "user": {
+                    "id": current_user.id,
+                    "name": current_user.full_name,
+                    "email": current_user.email
+                }
             }
             
             return {
