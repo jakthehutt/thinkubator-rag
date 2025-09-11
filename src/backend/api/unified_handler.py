@@ -56,11 +56,11 @@ class UnifiedRAGHandler:
             # Calculate processing time
             processing_time_ms = int((time.time() - start_time) * 1000)
             
-            # Format chunks to match expected structure
+            # Format chunks to match frontend expected structure
             formatted_chunks = []
             for chunk in chunks:
                 formatted_chunks.append({
-                    "content": chunk.get("document", ""),
+                    "document": chunk.get("document", ""),  # Changed from "content" to "document"
                     "metadata": chunk.get("metadata", {})
                 })
             

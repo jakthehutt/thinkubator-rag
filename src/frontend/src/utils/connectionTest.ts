@@ -32,8 +32,23 @@ class ConnectionTester {
   private backendUrl: string
 
   constructor() {
-    this.backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'
-    logger.info('network', '🔗 ConnectionTester initialized', { backendUrl: this.backendUrl })
+    // Get backend URL based on runtime context
+    this.backendUrl = this.getBackendUrl()
+    
+    logger.info('network', '🔗 ConnectionTester initialized', { 
+      backendUrl: this.backendUrl 
+    })
+  }
+
+  private getBackendUrl(): string {
+    // Check if we're running in browser (client-side) or Docker
+    if (typeof window !== 'undefined') {
+      // Browser context - use external host port
+      return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'
+    } else {
+      // Server-side rendering or Docker context - use internal network
+      return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://backend:8000'
+    }
   }
 
   /**

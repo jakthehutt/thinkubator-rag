@@ -52,6 +52,17 @@ export default function Home() {
     }
   }, [])
 
+  const getBackendUrl = (): string => {
+    // Context-aware backend URL selection
+    if (typeof window !== 'undefined') {
+      // Browser context - use external host port
+      return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'
+    } else {
+      // Server-side rendering - use internal network
+      return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://backend:8000'
+    }
+  }
+
   const handleQuery = async (query: string) => {
     const queryId = logger.generateQueryId()
     const startTime = performance.now()
@@ -64,8 +75,8 @@ export default function Home() {
     setResult(null)
 
     try {
-      // Get backend URL from environment or config
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'
+      // Get backend URL with context-aware fallback
+      const backendUrl = getBackendUrl()
       const apiUrl = `${backendUrl}/query`
       
       logger.info('network', '🌐 Using backend URL', { backendUrl, apiUrl }, queryId)
@@ -155,7 +166,7 @@ export default function Home() {
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred'
       
       // Log network errors vs API errors differently  
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'
+      const backendUrl = getBackendUrl()
       const apiUrl = `${backendUrl}/query`
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
         logNetworkError(apiUrl, err, queryId)
