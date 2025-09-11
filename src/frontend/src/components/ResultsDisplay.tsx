@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronDownIcon, ChevronUpIcon, DocumentTextIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import { ChevronDownIcon, ChevronUpIcon, DocumentTextIcon, ExclamationTriangleIcon, ClipboardIcon, CheckIcon } from '@heroicons/react/24/outline'
 import { logger, logUserAction } from '@/utils/logger'
 
 interface QueryResult {
@@ -20,6 +20,7 @@ interface ResultsDisplayProps {
 
 export function ResultsDisplay({ result, loading, error }: ResultsDisplayProps) {
   const [expandedChunks, setExpandedChunks] = useState<Set<number>>(new Set())
+  const [copied, setCopied] = useState(false)
 
   // Log component mount and state changes
   useEffect(() => {
@@ -75,6 +76,28 @@ export function ResultsDisplay({ result, loading, error }: ResultsDisplayProps) 
     })
   }
 
+  const copyToClipboard = async () => {
+    if (!result?.answer) return
+    
+    try {
+      await navigator.clipboard.writeText(result.answer)
+      setCopied(true)
+      
+      logger.info('ui', '📋 Answer copied to clipboard', { 
+        answerLength: result.answer.length
+      })
+      logUserAction('answer_copied', { 
+        answerLength: result.answer.length
+      })
+      
+      // Reset copied state after 2 seconds
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      logger.error('ui', '❌ Failed to copy answer to clipboard', { error })
+      logUserAction('answer_copy_failed', { error: error instanceof Error ? error.message : 'Unknown error' })
+    }
+  }
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -109,14 +132,33 @@ export function ResultsDisplay({ result, loading, error }: ResultsDisplayProps) 
     <div className="space-y-8">
       {/* Answer Section */}
       <div className="bg-gradient-to-r from-green-50 to-green-50 border border-green-200 rounded-xl p-6">
-        <div className="flex items-start mb-4">
-          <div className="w-10 h-10 bg-[#8FB390] rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
-            <span className="text-white font-bold">AI</span>
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-start">
+            <div className="w-10 h-10 bg-[#8FB390] rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+              <span className="text-white font-bold">AI</span>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-black mb-1">Answer</h2>
+              <p className="text-sm text-gray-600">Generated from circular economy knowledge base</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold text-black mb-1">Answer</h2>
-            <p className="text-sm text-gray-600">Generated from circular economy knowledge base</p>
-          </div>
+          <button
+            onClick={copyToClipboard}
+            className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white/50 rounded-lg transition-all duration-200 border border-gray-300/50 hover:border-gray-400/50"
+            title={copied ? 'Copied!' : 'Copy answer to clipboard'}
+          >
+            {copied ? (
+              <>
+                <CheckIcon className="h-4 w-4 text-green-600" />
+                <span className="text-green-600">Copied!</span>
+              </>
+            ) : (
+              <>
+                <ClipboardIcon className="h-4 w-4" />
+                <span>Copy</span>
+              </>
+            )}
+          </button>
         </div>
         <div className="prose prose-gray max-w-none">
           <div className="text-gray-800 leading-relaxed whitespace-pre-wrap">

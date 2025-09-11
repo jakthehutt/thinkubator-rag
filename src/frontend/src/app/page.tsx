@@ -5,7 +5,6 @@ import Image from 'next/image'
 import { QueryInterface } from '@/components/QueryInterface'
 import { ResultsDisplay } from '@/components/ResultsDisplay'
 import { logger, logApiRequest, logApiResponse, logNetworkError, logUserAction, logPerformance } from '@/utils/logger'
-import { connectionTester, testBackendHealth } from '@/utils/connectionTest'
 import { performanceMonitor, trackApiCall } from '@/utils/performanceMonitor'
 
 export interface QueryResult {
@@ -20,32 +19,12 @@ export default function Home() {
   const [result, setResult] = useState<QueryResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [backendStatus, setBackendStatus] = useState<'unknown' | 'healthy' | 'unhealthy'>('unknown')
-  const [connectionDetails, setConnectionDetails] = useState<any>(null)
 
   // Initialize logging and connection testing on component mount
   useEffect(() => {
     logger.info('ui', '🏠 Home component mounted')
     logUserAction('page_load', { url: window.location.href })
     
-    // Test backend connection on mount
-    const initializeConnection = async () => {
-      logger.info('network', '🔌 Initializing backend connection...')
-      const healthResult = await testBackendHealth()
-      
-      setBackendStatus(healthResult.status)
-      setConnectionDetails({
-        backendUrl: connectionTester.getBackendUrl(),
-        responseTime: healthResult.responseTime,
-        service: healthResult.service,
-        pipeline_initialized: healthResult.pipeline_initialized,
-        lastChecked: new Date().toISOString()
-      })
-      
-      logger.backendHealth(healthResult.status, healthResult)
-    }
-    
-    initializeConnection()
     
     return () => {
       logger.info('ui', '🏠 Home component unmounting')
@@ -240,38 +219,14 @@ export default function Home() {
         <div className="max-w-4xl mx-auto">
           {/* Hero Section */}
           <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-black mb-4">
-              What do you want to know about sustainability, circularity, or the environment?
+            <h2 className="text-3xl sm:text-4xl font-bold text-[#3E7652] mb-4">
+              What do you want to know?
             </h2>
             <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-              Ask anything and recieve a reliable answer generated from 750+ reports and scientific documents.
+              Ask anything and recieve a reliable answer generated from 750+ reports.
             </p>
           </div>
 
-          {/* Connection Status (Development Only) */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mb-6 p-3 bg-gray-50 rounded-lg border">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${
-                    backendStatus === 'healthy' ? 'bg-green-500' : 
-                    backendStatus === 'unhealthy' ? 'bg-red-500' : 'bg-yellow-500'
-                  }`}></div>
-                  <span className="font-medium">Backend Status: {backendStatus}</span>
-                </div>
-                {connectionDetails && (
-                  <div className="text-gray-600">
-                    {connectionDetails.backendUrl} ({connectionDetails.responseTime}ms)
-                  </div>
-                )}
-              </div>
-              {connectionDetails?.pipeline_initialized === false && (
-                <div className="mt-2 text-xs text-yellow-700 bg-yellow-100 p-2 rounded">
-                  ⚠️ RAG pipeline not fully initialized
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Query Interface */}
           <QueryInterface 
@@ -288,25 +243,6 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-200 bg-[#f5f5f5] mt-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center text-gray-600">
-            <p>
-              Powered by{" "}
-                <a 
-                href="https://www.thinkubator.earth/" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-[#3E7652] hover:text-[#8FB390] font-medium"
-              >
-                Thinkubator
-              </a>{" "}
-              • Building a circular future through education, research, and advisory services
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }
