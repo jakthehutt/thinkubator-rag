@@ -117,8 +117,7 @@ export function QueryInterface({ onQuery, loading }: QueryInterfaceProps) {
           {[
             "What is the circularity gap?",
             "How do circular business models work?",
-            "What are the main challenges in transitioning to circular economy?",
-            "How does recycling impact the circular economy?"
+            "What are the main challenges in transitioning to circular economy?"
           ].map((sampleQuery) => (
             <button
               key={sampleQuery}
