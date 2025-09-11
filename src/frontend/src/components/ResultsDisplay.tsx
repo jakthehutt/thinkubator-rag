@@ -10,6 +10,7 @@ interface QueryResult {
     document: string
     metadata: Record<string, string | number | boolean | null>
   }>
+  query?: string // The original question (for past chats)
 }
 
 interface ResultsDisplayProps {
@@ -21,6 +22,7 @@ interface ResultsDisplayProps {
 export function ResultsDisplay({ result, loading, error }: ResultsDisplayProps) {
   const [expandedChunks, setExpandedChunks] = useState<Set<number>>(new Set())
   const [copied, setCopied] = useState(false)
+  const [questionCopied, setQuestionCopied] = useState(false)
   const [chunkCopied, setChunkCopied] = useState<Set<number>>(new Set())
   const [metadataCopied, setMetadataCopied] = useState<Set<string>>(new Set())
 
@@ -97,6 +99,28 @@ export function ResultsDisplay({ result, loading, error }: ResultsDisplayProps) 
     } catch (error) {
       logger.error('ui', '❌ Failed to copy answer to clipboard', { error })
       logUserAction('answer_copy_failed', { error: error instanceof Error ? error.message : 'Unknown error' })
+    }
+  }
+
+  const copyQuestionToClipboard = async () => {
+    if (!result?.query) return
+    
+    try {
+      await navigator.clipboard.writeText(result.query)
+      setQuestionCopied(true)
+      
+      logger.info('ui', '📋 Question copied to clipboard', { 
+        questionLength: result.query.length
+      })
+      logUserAction('question_copied', { 
+        questionLength: result.query.length
+      })
+      
+      // Reset copied state after 2 seconds
+      setTimeout(() => setQuestionCopied(false), 2000)
+    } catch (error) {
+      logger.error('ui', '❌ Failed to copy question to clipboard', { error })
+      logUserAction('question_copy_failed', { error: error instanceof Error ? error.message : 'Unknown error' })
     }
   }
 
@@ -186,6 +210,47 @@ export function ResultsDisplay({ result, loading, error }: ResultsDisplayProps) 
 
   return (
     <div className="space-y-8">
+      {/* Question Section (for past chats) */}
+      {result.query && (
+        <div className="bg-gradient-to-r from-blue-50 to-blue-50 border border-blue-200 rounded-xl p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start">
+              <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-black mb-1">Question</h2>
+                <p className="text-sm text-gray-600">Your original query from this conversation</p>
+              </div>
+            </div>
+            <button
+              onClick={copyQuestionToClipboard}
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-white/50 rounded-lg transition-all duration-200 border border-gray-300/50 hover:border-gray-400/50"
+              title={questionCopied ? 'Copied!' : 'Copy question to clipboard'}
+            >
+              {questionCopied ? (
+                <>
+                  <CheckIcon className="h-4 w-4 text-green-600" />
+                  <span className="text-green-600">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <ClipboardIcon className="h-4 w-4" />
+                  <span>Copy</span>
+                </>
+              )}
+            </button>
+          </div>
+          <div className="prose prose-gray max-w-none">
+            <div className="text-gray-800 leading-relaxed whitespace-pre-wrap font-medium">
+              {result.query}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Answer Section */}
       <div className="bg-gradient-to-r from-green-50 to-green-50 border border-green-200 rounded-xl p-6">
         <div className="flex items-start justify-between mb-4">

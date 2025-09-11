@@ -15,6 +15,7 @@ export interface QueryResult {
     metadata: Record<string, string | number | boolean | null>
   }>
   session_id?: string
+  query?: string // The original question (for past chats)
   user?: {
     id: string
     name: string
@@ -224,11 +225,12 @@ export default function Home() {
         chunksCount: fullSessionData.chunks?.length || 0 
       })
       
-      // Update the result with complete session data including chunks
+      // Update the result with complete session data including chunks and query
       setResult({
         answer: fullSessionData.answer,
         chunks: fullSessionData.chunks || [],
-        session_id: fullSessionData.id
+        session_id: fullSessionData.id,
+        query: fullSessionData.query // Include the original question for past chats
       })
       
       setSelectedSessionId(session.id)
