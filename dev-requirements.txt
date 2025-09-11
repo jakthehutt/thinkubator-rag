@@ -1,0 +1,28 @@
+# === CORE RAG DEPENDENCIES ===
+fastapi>=0.100.0
+uvicorn[standard]>=0.20.0
+pydantic>=2.0.0
+
+# === AI & LLM ===
+google-generativeai>=0.8.0
+langchain-google-genai>=2.0.0
+langchain-core>=0.3.0
+
+# === DATABASE & VECTOR STORE ===
+supabase>=2.0.0
+psycopg2-binary>=2.9.0
+
+# === PDF & DOCUMENT PROCESSING ===
+pypdf>=4.0.0
+python-multipart>=0.0.9
+
+# === ENVIRONMENT & CONFIG ===
+python-dotenv>=1.0.0
+
+# === TESTING ===
+pytest>=8.0.0
+pytest-asyncio>=0.20.0
+requests-mock>=1.10.0
+
+# === UTILITIES ===
+requests>=2.30.0

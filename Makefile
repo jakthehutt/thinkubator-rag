@@ -1,4 +1,4 @@
-.PHONY: test-chunking test-storing test-retrieving test-generation test-e2e-rag test-supabase test-api test-all ingest-pdfs
+.PHONY: test-chunking test-storing test-retrieving test-generation test-e2e-rag test-supabase test-api test-all ingest-pdfs dev prod stop build logs test-docker clean-docker
 
 # Backend tests
 test-chunking:
@@ -31,3 +31,47 @@ test-all:
 # Utilities
 ingest-pdfs:
 	@bash make/ingest_pdfs.sh
+
+# === DOCKER COMMANDS ===
+
+# Development environment
+dev:
+	@echo "🐳 Starting development environment..."
+	docker compose up --build -d
+	@echo "✅ Development environment running at:"
+	@echo "   - Backend:  http://localhost:8001"
+	@echo "   - Frontend: http://localhost:3000"
+	@echo "   - Health:   http://localhost:8001/health"
+
+# Production environment  
+prod:
+	@echo "🚀 Starting production environment..."
+	docker compose -f docker-compose-prod.yml up --build -d
+	@echo "✅ Production environment running"
+
+# Stop all containers
+stop:
+	@echo "🛑 Stopping containers..."
+	docker compose down
+	docker compose -f docker-compose-prod.yml down
+
+# Build containers without starting
+build:
+	@echo "🔨 Building containers..."
+	docker compose build
+	docker compose -f docker-compose-prod.yml build
+
+# View logs
+logs:
+	docker compose logs -f
+
+# Test Docker setup
+test-docker:
+	@bash make/test_docker.sh
+
+# Clean Docker environment
+clean-docker:
+	@echo "🧹 Cleaning Docker environment..."
+	docker compose down -v
+	docker system prune -f
+	docker volume prune -f

@@ -1,0 +1,62 @@
+services:
+  # === RAG BACKEND SERVICE (Development) ===
+  backend:
+    build: 
+      context: .
+      dockerfile: src/backend/Dockerfile
+    container_name: rag-backend-dev
+    ports:
+      - "8001:8000"
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - ENVIRONMENT=development
+      - HOST=0.0.0.0
+      - PORT=8000
+      # Supabase Configuration
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - POSTGRES_URL_NON_POOLING=${POSTGRES_URL_NON_POOLING}
+      # AI Configuration
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - ./data:/app/data
+      - ./src/backend:/app/src/backend  # Mount for development
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - rag-network
+    
+  # === FRONTEND SERVICE (Development) ===  
+  frontend:
+    build:
+      context: src/frontend
+      dockerfile: Dockerfile.dev
+    container_name: rag-frontend-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+      - BACKEND_URL=http://backend:8000
+    volumes:
+      - ./src/frontend/src:/app/src  # Mount for hot reload
+      - ./src/frontend/public:/app/public
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - rag-network
+
+networks:
+  rag-network:
+    driver: bridge
