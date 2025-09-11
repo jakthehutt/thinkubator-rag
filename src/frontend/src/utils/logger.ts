@@ -62,7 +62,66 @@ class Logger {
     
     if (this.isDev) {
       const consoleMethod = level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log'
-      console[consoleMethod](`${emoji} ${levelLabel} ${categoryLabel} ${message}`, data ? data : '')
+      
+      // Ultra-safe console logging - never pass objects directly
+      try {
+        if (data && typeof data === 'object' && !this.isEmptyObject(data)) {
+          // Convert data to safe string representation
+          const safeData = this.safeStringify(data)
+          console[consoleMethod](`${emoji} ${levelLabel} ${categoryLabel} ${message}`, safeData)
+        } else if (data && typeof data !== 'object') {
+          // Handle primitive types safely
+          console[consoleMethod](`${emoji} ${levelLabel} ${categoryLabel} ${message}`, String(data))
+        } else {
+          // No data or empty data
+          console[consoleMethod](`${emoji} ${levelLabel} ${categoryLabel} ${message}`)
+        }
+      } catch (err) {
+        // Ultimate fallback - never fails
+        console[consoleMethod](`${emoji} ${levelLabel} ${categoryLabel} ${message} [data logging failed]`)
+      }
+    }
+  }
+
+  private isEmptyObject(obj: any): boolean {
+    if (!obj || typeof obj !== 'object') return true
+    if (Array.isArray(obj)) return obj.length === 0
+    return Object.keys(obj).length === 0 || Object.getOwnPropertyNames(obj).length === 0
+  }
+
+  private safeStringify(data: any): string {
+    try {
+      // Handle different data types safely
+      if (data === null || data === undefined) {
+        return String(data)
+      }
+      
+      if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean') {
+        return String(data)
+      }
+      
+      if (data instanceof Error) {
+        return `Error: ${data.message}`
+      }
+      
+      // For objects/arrays, use safe JSON.stringify with fallback
+      return JSON.stringify(data, this.getCircularReplacer(), 2)
+    } catch (err) {
+      // Final fallback for any stringify errors
+      return `[Object: ${typeof data}]`
+    }
+  }
+
+  private getCircularReplacer() {
+    const seen = new WeakSet()
+    return (key: string, value: any) => {
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) {
+          return '[Circular Reference]'
+        }
+        seen.add(value)
+      }
+      return value
     }
   }
 
