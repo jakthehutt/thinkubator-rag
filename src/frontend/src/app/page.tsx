@@ -26,7 +26,12 @@ export default function Home() {
 
     try {
       console.log('📡 Making API request...')
-      const response = await fetch('/api/query', {
+      // Get backend URL from environment or config
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001'
+      const apiUrl = `${backendUrl}/query`
+      console.log('🌐 Backend URL:', apiUrl)
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -69,6 +69,10 @@ logs:
 test-docker:
 	@bash make/test_docker.sh
 
+# Test frontend
+test-frontend:
+	@bash make/test_frontend.sh
+
 # Clean Docker environment
 clean-docker:
 	@echo "🧹 Cleaning Docker environment..."

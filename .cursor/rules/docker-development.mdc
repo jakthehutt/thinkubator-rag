@@ -1,0 +1,263 @@
+# Docker Development Rules for Thinkubator RAG
+
+## Project Architecture Overview
+
+This is a fully containerized RAG (Retrieval-Augmented Generation) system with:
+- **Backend**: FastAPI with Python 3.11, Supabase vector store, Google Gemini AI
+- **Frontend**: Next.js 15.5.2 with React 19, TypeScript, Tailwind CSS
+- **Database**: Supabase with pgvector for embeddings
+- **Containerization**: Docker Compose for development and production
+
+## Docker Usage Guidelines
+
+### Always Use Docker for Development
+
+**RULE**: All development must happen through Docker containers. Do not run services directly on the host machine.
+
+```bash
+# ✅ CORRECT: Use Docker for development
+make dev                    # Start development environment
+make test-docker           # Run tests
+docker compose logs backend # View logs
+
+# ❌ INCORRECT: Don't run directly
+python src/backend/main.py  # Never do this
+npm run dev                 # Never do this
+```
+
+### Environment Management
+
+**RULE**: Always verify environment variables are properly configured before suggesting changes.
+
+```bash
+# ✅ Check environment before making changes
+cat .env                   # Verify env vars exist
+make test-docker          # Test full setup
+```
+
+**Required Environment Variables:**
+- `GEMINI_API_KEY` - Google AI API key
+- `SUPABASE_URL` - Supabase project URL
+- `SUPABASE_ANON_KEY` - Supabase anonymous key
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
+- `POSTGRES_URL_NON_POOLING` - PostgreSQL connection string
+
+### Service Ports and URLs
+
+**RULE**: Always use the correct ports when referencing services:
+
+- **Backend API**: `http://localhost:8001` (external) → `8000` (internal)
+- **Frontend**: `http://localhost:3001` (external) → `3000` (internal)
+- **Backend Health**: `http://localhost:8001/health`
+- **API Docs**: `http://localhost:8001/docs`
+
+### Code Changes and Testing
+
+**RULE**: For every code change, provide appropriate testing commands.
+
+```bash
+# Backend changes
+docker compose restart backend  # Apply changes
+make test-all                  # Run backend tests
+
+# Frontend changes  
+# (Hot reload automatic)       # No restart needed
+make test-frontend             # Run frontend tests
+
+# Full integration testing
+make test-docker               # Complete system test
+```
+
+### File Structure Rules
+
+**RULE**: Respect the containerized file structure:
+
+```
+src/
+├── backend/                   # Python backend code
+│   ├── Dockerfile            # Backend container definition
+│   ├── main.py              # FastAPI application entry
+│   ├── chain/               # RAG pipeline components
+│   └── tests/               # Backend test suites
+└── frontend/                 # Next.js frontend code
+    ├── Dockerfile           # Production frontend container
+    ├── Dockerfile.dev       # Development frontend container
+    ├── src/                 # Frontend source code
+    └── tests/               # Frontend test suites
+
+docker-compose.yml            # Development environment
+docker-compose-prod.yml       # Production environment
+dev-requirements.txt          # Python dependencies
+make/                        # Build and test scripts
+ENVIRONMENT_SETUP.md         # Setup documentation
+```
+
+### Making File Changes
+
+**RULE**: When suggesting file changes, always consider Docker implications:
+
+1. **Backend Python changes**: Container will auto-restart
+2. **Frontend changes**: Next.js hot reload applies instantly  
+3. **Dependency changes**: Rebuild containers with `docker compose build`
+4. **Docker config changes**: Restart services with `make stop && make dev`
+
+### Debugging and Logging
+
+**RULE**: Always use Docker-based debugging approaches:
+
+```bash
+# ✅ CORRECT: Use Docker logs and tools
+docker compose logs backend -f    # Follow backend logs
+docker compose logs frontend -f   # Follow frontend logs
+docker compose exec backend bash # Enter backend container
+docker compose exec frontend sh  # Enter frontend container
+
+# Test connectivity between containers
+docker compose exec frontend curl http://backend:8000/health
+```
+
+### Testing Guidelines
+
+**RULE**: Use the appropriate test level for the change scope:
+
+1. **Unit changes**: `make test-all` (backend unit tests)
+2. **Frontend changes**: `make test-frontend` (frontend tests)
+3. **Integration changes**: `make test-docker` (full system tests)
+4. **Docker config changes**: `make test-docker` (always)
+
+### Performance and Resource Considerations
+
+**RULE**: Consider Docker resource usage in recommendations:
+
+- **Development**: Expect containers to use 2-4GB RAM total
+- **Build times**: Initial builds ~5-10 minutes, rebuilds ~1-2 minutes
+- **Hot reload**: Frontend changes are instant, backend restarts ~5-10 seconds
+
+### Error Handling and Troubleshooting
+
+**RULE**: When errors occur, follow this diagnostic sequence:
+
+```bash
+1. Check container status:     docker compose ps
+2. Check logs:                 make logs
+3. Test connectivity:          make test-docker
+4. Clean and restart:          make clean-docker && make dev
+```
+
+### Common Docker Commands Reference
+
+**RULE**: Always suggest the `make` commands first, then Docker commands as alternatives:
+
+```bash
+# Primary commands (use these first)
+make dev          # Start development
+make prod         # Start production  
+make stop         # Stop all services
+make logs         # View all logs
+make test-docker  # Test complete setup
+make clean-docker # Clean environment
+
+# Direct Docker commands (when make commands aren't sufficient)
+docker compose up --build -d              # Start development
+docker compose -f docker-compose-prod.yml up -d  # Start production
+docker compose down                        # Stop services
+docker compose restart backend             # Restart specific service
+docker compose build backend --no-cache    # Force rebuild
+```
+
+### API Integration Rules
+
+**RULE**: For API testing and integration:
+
+```bash
+# ✅ Test backend directly
+curl http://localhost:8001/health
+
+# ✅ Test RAG functionality  
+curl -X POST "http://localhost:8001/query" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is circular economy?"}'
+
+# ✅ Frontend connects to backend via environment variable
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8001
+```
+
+### Security Guidelines
+
+**RULE**: Never suggest committing sensitive information:
+
+- ✅ Use `.env` file for secrets (already in `.gitignore`)
+- ✅ Reference environment variables in code
+- ❌ Never hardcode API keys or database credentials
+- ❌ Never commit `.env` file to version control
+
+### Production Readiness
+
+**RULE**: When preparing for production deployment:
+
+```bash
+# Test production build locally
+make prod                    # Start production environment
+make test-docker            # Verify everything works
+
+# Production checklist:
+# ✅ Environment variables configured
+# ✅ Docker images optimized
+# ✅ Health checks working
+# ✅ No development dependencies in production
+```
+
+## Code Quality Standards
+
+### Backend Code Standards
+
+**RULE**: Backend changes should:
+- Follow FastAPI best practices
+- Include proper error handling
+- Add type hints for Python functions
+- Update tests for new functionality
+- Maintain RAG pipeline integrity
+
+### Frontend Code Standards
+
+**RULE**: Frontend changes should:
+- Use TypeScript for type safety
+- Follow Next.js 13+ app directory structure
+- Implement proper loading states
+- Handle API errors gracefully
+- Maintain responsive design
+
+### Testing Standards
+
+**RULE**: All changes should include appropriate tests:
+- **Backend**: Unit tests in `src/backend/tests/`
+- **Frontend**: Unit tests in `src/frontend/tests/unit/`
+- **Integration**: End-to-end tests in `src/frontend/tests/integration/`
+- **Docker**: System tests via `make test-docker`
+
+## Workflow Integration
+
+### Development Workflow
+
+**RULE**: Recommended development sequence:
+
+```bash
+1. Start environment:        make dev
+2. Verify setup:            make test-docker  
+3. Make code changes        (edit files)
+4. Test changes:            make test-all / make test-frontend
+5. Commit changes:          git add . && git commit -m "..."
+6. Final verification:      make test-docker
+```
+
+### CI/CD Considerations
+
+**RULE**: All changes should be CI/CD friendly:
+- Docker builds must be reproducible
+- Tests must pass in clean environment
+- No host-specific dependencies
+- Environment variables clearly documented
+
+---
+
+**Remember**: This is a production-ready, containerized system. Always think "Docker first" when making suggestions or troubleshooting issues. The containers provide consistency across all development environments and deployment targets.

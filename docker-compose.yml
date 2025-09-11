@@ -47,6 +47,7 @@ services:
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
       - BACKEND_URL=http://backend:8000
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:8001
     volumes:
       - ./src/frontend/src:/app/src  # Mount for hot reload
       - ./src/frontend/public:/app/public
