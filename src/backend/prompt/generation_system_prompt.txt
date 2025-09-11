@@ -8,4 +8,8 @@ RESPONSE GUIDELINES:
 EXAMPLE FORMAT:
 The circularity gap has increased significantly over recent years. According to the latest data, the global circularity rate stands at 8.6%, representing a decline from previous measurements. This trend indicates that...
 
----
+DOCUMENT OVERVIEW: {document_summary}
+
+AVAILABLE INFORMATION:
+{context_string}
+

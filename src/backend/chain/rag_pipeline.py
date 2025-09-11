@@ -102,12 +102,17 @@ class RAGPipeline:
             logging.error(f"Failed to initialize Supabase vector store: {e}")
             raise
 
-        self.generative_model = genai.GenerativeModel(GEMINI_GENERATIVE_MODEL)
-        
+        # Load prompts
         self.chunking_prompt = self._load_prompt(chunking_prompt_path)
         self.chunk_summary_prompt = self._load_prompt(chunk_summary_prompt_path)
         self.document_summary_prompt = self._load_prompt(document_summary_prompt_path)
         self.generation_system_prompt = self._load_prompt(generation_system_prompt_path)
+        
+        # Create base generative model for document processing (chunking, summarization, etc.)
+        self.generative_model = genai.GenerativeModel(GEMINI_GENERATIVE_MODEL)
+        
+        # Store the model name for dynamic system instruction model creation
+        self.model_name = GEMINI_GENERATIVE_MODEL
         
         # --- Initialize Query Processor and Reranker ---
         try:
@@ -457,23 +462,20 @@ class RAGPipeline:
             context_string = "\n\n".join(context_chunks)
             sources_list = "\n".join(numbered_sources)
 
-            full_prompt = f"""{self.generation_system_prompt}
+            # Create system instruction with context and document info
+            system_instruction = self.generation_system_prompt.format(
+                document_summary=document_summary,
+                context_string=context_string
+            )
 
-DOCUMENT OVERVIEW: {document_summary}
+            # Create generative model with system instruction
+            model_with_system = genai.GenerativeModel(
+                model_name=self.model_name,
+                system_instruction=system_instruction
+            )
 
-AVAILABLE INFORMATION:
-{context_string}
-
-INSTRUCTIONS FOR CITATION:
-- Use numbered citations [1], [2], etc. in your answer
-- End your response with a "Sources:" section listing the numbered references
-- Remember that page numbers are approximations (marked with ~)
-
-USER QUESTION: {user_query}
-
-ANSWER:"""
-
-            response = self.generative_model.generate_content(full_prompt)
+            # Pass user query directly as user input (proper separation)
+            response = model_with_system.generate_content(user_query)
             return response.text
             
         except Exception as e:

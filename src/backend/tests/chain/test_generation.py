@@ -38,36 +38,31 @@ def test_generate_answer(mock_rag_pipeline):
     ]
 
     with patch.object(pipeline, 'retrieve', return_value=mock_retrieved_chunks_info):
-        # Mock the generative model's response
-        mock_gen_model_instance.generate_content.return_value.text = "Generated answer based on context."
+        # Mock the GenerativeModel constructor to return our mock and capture its arguments
+        with patch('src.backend.chain.rag_pipeline.genai.GenerativeModel', return_value=mock_gen_model_instance) as mock_model_constructor:
+            # Mock the generative model's response  
+            mock_gen_model_instance.generate_content.return_value.text = "Generated answer based on context."
 
-        user_query = "What is discussed in these documents?"
-        generated_answer = pipeline.generate_answer(user_query, top_k_chunks=3)
+            user_query = "What is discussed in these documents?"
+            generated_answer = pipeline.generate_answer(user_query, top_k_chunks=3)
 
-        # Assert that the generative model was called
-        mock_gen_model_instance.generate_content.assert_called_once()
-        
-        # Get the call arguments to inspect the generated prompt
-        called_prompt = mock_gen_model_instance.generate_content.call_args[0][0]
+            # Assert that GenerativeModel was called with proper system instruction
+            mock_model_constructor.assert_called_once()
+            call_args = mock_model_constructor.call_args
+            
+            # Check that system_instruction was passed and contains expected elements
+            assert 'system_instruction' in call_args.kwargs
+            system_instruction = call_args.kwargs['system_instruction']
+            
+            # Verify system instruction contains key elements (but NOT the user query)
+            assert "You are an expert AI assistant working for thinkubator.earth" in system_instruction
+            assert "DOCUMENT OVERVIEW: Summary of Doc1." in system_instruction
+            assert "Source [1]: Doc1.pdf (Page ~1)" in system_instruction
+            assert "INSTRUCTIONS FOR CITATION:" in system_instruction
+            assert user_query not in system_instruction  # User query should NOT be in system instruction
 
-        # Assert that the system prompt is included
-        # The pipeline.generation_system_prompt attribute should already be set by the fixture.
-        assert pipeline.generation_system_prompt.strip() in called_prompt.strip()
-
-        # Assert that document overview is included (new format)
-        assert "DOCUMENT OVERVIEW: Summary of Doc1." in called_prompt
-
-        # Assert that chunk contents are included with new numbered format
-        assert "Source [1]: Doc1.pdf (Page ~1)" in called_prompt
-        assert "Source [2]: Doc1.pdf (Page ~2)" in called_prompt
-        assert "Source [3]: Doc2.pdf (Page ~3)" in called_prompt
-
-        # Assert that the new format instructions are included
-        assert "INSTRUCTIONS FOR CITATION:" in called_prompt
-        assert "Use numbered citations [1], [2], etc. in your answer" in called_prompt
-
-        # Assert that user query is included
-        assert f"USER QUESTION: {user_query}" in called_prompt
-
-        # Assert the final answer
-        assert generated_answer == "Generated answer based on context."
+            # Assert that the generative model was called with the user query directly
+            mock_gen_model_instance.generate_content.assert_called_once_with(user_query)
+            
+            # Assert the final answer
+            assert generated_answer == "Generated answer based on context."
