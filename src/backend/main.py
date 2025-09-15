@@ -33,13 +33,14 @@ async def lifespan(app: FastAPI):
     global rag_handler
     logger.info("🚀 Starting RAG Backend Service...")
     
-    # Initialize RAG handler
+    # Initialize RAG handler (resilient startup)
     try:
         rag_handler = UnifiedRAGHandler()
         logger.info("✅ RAG pipeline initialized successfully")
     except Exception as e:
         logger.error(f"❌ Failed to initialize RAG pipeline: {e}")
-        raise
+        logger.info("⚠️ Starting in degraded mode - some features may be unavailable")
+        rag_handler = None
     
     yield
     
@@ -82,17 +83,22 @@ class QueryResponse(BaseModel):
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    global rag_handler
+    global rag_handler, query_storage
+    
+    pipeline_ready = rag_handler is not None and rag_handler.rag_pipeline is not None
+    storage_ready = query_storage is not None
     
     status = {
-        "status": "healthy",
+        "status": "healthy" if pipeline_ready else "degraded",
         "service": "rag-backend",
-        "pipeline_initialized": rag_handler is not None and rag_handler.rag_pipeline is not None
+        "pipeline_initialized": pipeline_ready,
+        "storage_initialized": storage_ready,
+        "features": {
+            "query_processing": pipeline_ready,
+            "chat_history": storage_ready,
+            "user_management": True  # Mock user service always works
+        }
     }
-    
-    if not status["pipeline_initialized"]:
-        status["status"] = "unhealthy"
-        raise HTTPException(status_code=503, detail="RAG pipeline not initialized")
     
     return status
 
@@ -192,19 +198,29 @@ async def get_current_user_sessions(limit: int = 50):
     """Get all query sessions for the current user."""
     global query_storage
     
-    # Initialize storage if not available
-    if not query_storage:
-        try:
-            logger.info("🔄 Initializing query storage on demand...")
-            query_storage = QueryStorageService()
-            logger.info("✅ Query storage initialized on demand")
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize query storage on demand: {e}")
-            raise HTTPException(status_code=503, detail="Storage service initialization failed")
-    
     try:
         user = user_service.get_mock_user()
-        # Instead of calling get_user_sessions, implement directly here
+        
+        # Check if storage is available
+        if not query_storage:
+            # Try to initialize storage on demand
+            try:
+                logger.info("🔄 Initializing query storage on demand...")
+                query_storage = QueryStorageService()
+                logger.info("✅ Query storage initialized on demand")
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize query storage on demand: {e}")
+                # Return empty sessions instead of failing
+                logger.info("📄 Returning empty sessions list due to storage unavailability")
+                return {
+                    "sessions": [],
+                    "total": 0,
+                    "user_id": user.id,
+                    "message": "Chat history temporarily unavailable - storage service offline",
+                    "storage_available": False
+                }
+        
+        # Try to get sessions
         sessions = query_storage.get_user_sessions(user.id, limit)
         
         # Format sessions for frontend
@@ -225,11 +241,24 @@ async def get_current_user_sessions(limit: int = 50):
         return {
             "sessions": formatted_sessions,
             "total": len(formatted_sessions),
-            "user_id": user.id
+            "user_id": user.id,
+            "storage_available": True
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get current user sessions: {str(e)}")
+        logger.error(f"Error in get_current_user_sessions: {e}")
+        # Return empty sessions with error message instead of HTTP error
+        try:
+            user = user_service.get_mock_user()
+            return {
+                "sessions": [],
+                "total": 0,
+                "user_id": user.id,
+                "message": f"Chat history temporarily unavailable: {str(e)}",
+                "storage_available": False
+            }
+        except Exception as user_error:
+            raise HTTPException(status_code=500, detail=f"Failed to get current user sessions: {str(e)}")
 
 @app.get("/user/{user_id}/sessions")
 async def get_user_sessions(user_id: str, limit: int = 50):

@@ -55,14 +55,30 @@ export function ChatHistorySidebar({ onSessionSelect, selectedSessionId, refresh
       }
       
       const data = await response.json()
-      logger.info('ui', '✅ Chat history fetched successfully', { count: data.sessions.length })
+      logger.info('ui', '✅ Chat history fetched successfully', { 
+        count: data.sessions.length,
+        storage_available: data.storage_available 
+      })
       
       setSessions(data.sessions)
+      
+      // Show message if storage is unavailable but request succeeded
+      if (data.message && !data.storage_available) {
+        logger.warn('ui', '⚠️ Chat history service degraded', { message: data.message })
+      }
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch chat history'
       logger.error('ui', '❌ Failed to fetch chat history', { error: errorMessage })
-      setError(errorMessage)
+      
+      // More user-friendly error messages
+      if (errorMessage.includes('Failed to fetch')) {
+        setError('Unable to connect to chat history service. Please check your connection.')
+      } else if (errorMessage.includes('503')) {
+        setError('Chat history service is temporarily unavailable. Please try again later.')
+      } else {
+        setError(errorMessage)
+      }
     } finally {
       setLoading(false)
     }
