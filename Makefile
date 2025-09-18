@@ -57,29 +57,43 @@ migrate-user-sessions:
 # Development environment
 dev:
 	@echo "🐳 Starting development environment..."
+	@if [ ! -f .env ]; then \
+		echo "📝 Creating .env from example..."; \
+		cp deployment/env-examples/development.env .env; \
+		echo "⚠️  Please edit .env with your configuration"; \
+	fi
 	docker compose up --build -d
 	@echo "✅ Development environment running at:"
 	@echo "   - Backend:  http://localhost:8001"
 	@echo "   - Frontend: http://localhost:3001"
 	@echo "   - Health:   http://localhost:8001/health"
 
-# Production environment  
+# Production environment with Traefik  
 prod:
-	@echo "🚀 Starting production environment..."
-	docker compose -f docker-compose-prod.yml up --build -d
-	@echo "✅ Production environment running"
+	@echo "🚀 Starting production environment with Traefik..."
+	@if [ ! -f .env.production ]; then \
+		echo "❌ Create .env.production first (see deployment/env-examples/production.env)"; \
+		exit 1; \
+	fi
+	@echo "🔧 Setting up Traefik..."
+	docker network create traefik-network 2>/dev/null || true
+	mkdir -p deployment/traefik/acme && chmod 600 deployment/traefik/acme
+	touch deployment/traefik/acme/acme.json && chmod 600 deployment/traefik/acme/acme.json
+	docker compose --env-file .env.production --profile production up --build -d
+	@echo "✅ Production environment running with Traefik!"
+	@echo "🌐 Frontend: https://$$(grep DOMAIN= .env.production | cut -d'=' -f2)"
+	@echo "🔧 API: https://api.$$(grep DOMAIN= .env.production | cut -d'=' -f2)"
 
 # Stop all containers
 stop:
-	@echo "🛑 Stopping containers..."
+	@echo "🛑 Stopping all containers..."
 	docker compose down
-	docker compose -f docker-compose-prod.yml down
+	docker compose --profile "*" down 2>/dev/null || true
 
 # Build containers without starting
 build:
 	@echo "🔨 Building containers..."
 	docker compose build
-	docker compose -f docker-compose-prod.yml build
 
 # View logs
 logs:

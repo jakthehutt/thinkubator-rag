@@ -1,17 +1,17 @@
 services:
-  # === RAG BACKEND SERVICE (Development) ===
+  # === RAG BACKEND SERVICE ===
   backend:
     build: 
       context: .
       dockerfile: src/backend/Dockerfile
-    container_name: rag-backend-dev
+    container_name: rag-backend-${COMPOSE_PROFILES:-dev}
     ports:
-      - "8001:8000"
+      - "${BACKEND_PORT:-8001}:8000"
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
-      - ENVIRONMENT=development
+      - ENVIRONMENT=${ENVIRONMENT:-development}
       - HOST=0.0.0.0
       - PORT=8000
       # Supabase Configuration
@@ -23,8 +23,12 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
     volumes:
       - ./data:/app/data
-      - ./src/backend:/app/src/backend  # Mount for development
       - ./logs:/app/logs
+      # Mount source code only in development
+      - type: bind
+        source: ./src/backend
+        target: /app/src/backend
+        read_only: false
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -34,22 +38,40 @@ services:
       start_period: 40s
     networks:
       - rag-network
+      - traefik-network
+    # Traefik labels (only active in production profile)
+    labels:
+      - "traefik.enable=${TRAEFIK_ENABLE:-false}"
+      - "traefik.http.routers.backend.rule=Host(`api.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+      - "traefik.http.routers.backend.middlewares=cors-headers"
+      - "traefik.http.middlewares.cors-headers.headers.accesscontrolallowmethods=GET,OPTIONS,PUT,POST,DELETE"
+      - "traefik.http.middlewares.cors-headers.headers.accesscontrolalloworiginlist=https://${DOMAIN:-localhost}"
+      - "traefik.http.middlewares.cors-headers.headers.addvaryheader=true"
     
-  # === FRONTEND SERVICE (Development) ===  
+  # === FRONTEND SERVICE ===  
   frontend:
     build:
       context: src/frontend
-      dockerfile: Dockerfile.dev
-    container_name: rag-frontend-dev
+      dockerfile: ${FRONTEND_DOCKERFILE:-Dockerfile.dev}
+    container_name: rag-frontend-${COMPOSE_PROFILES:-dev}
     ports:
-      - "3001:3000"
+      - "${FRONTEND_PORT:-3001}:3000"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=${NODE_ENV:-development}
       - NEXT_TELEMETRY_DISABLED=1
-      - NEXT_PUBLIC_BACKEND_URL=http://localhost:8001
+      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-http://localhost:8001}
     volumes:
-      - ./src/frontend/src:/app/src  # Mount for hot reload
-      - ./src/frontend/public:/app/public
+      # Mount source code only in development
+      - type: bind
+        source: ./src/frontend/src
+        target: /app/src
+        read_only: false
+      - type: bind
+        source: ./src/frontend/public
+        target: /app/public
+        read_only: false
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"] 
       interval: 30s
@@ -61,7 +83,79 @@ services:
     restart: unless-stopped
     networks:
       - rag-network
+      - traefik-network
+    # Traefik labels (only active in production profile)
+    labels:
+      - "traefik.enable=${TRAEFIK_ENABLE:-false}"
+      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.frontend.middlewares=security-headers"
+      # Security headers
+      - "traefik.http.middlewares.security-headers.headers.framedeny=true"
+      - "traefik.http.middlewares.security-headers.headers.browserxssfilter=true"
+      - "traefik.http.middlewares.security-headers.headers.contenttypenosniff=true"
+      - "traefik.http.middlewares.security-headers.headers.forcestsheader=true"
+      - "traefik.http.middlewares.security-headers.headers.stsseconds=31536000"
+
+  # === TRAEFIK REVERSE PROXY (Production profile only) ===
+  traefik:
+    image: traefik:v3.1
+    container_name: traefik
+    profiles: ["production"]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Dashboard
+    environment:
+      - ACME_EMAIL=${ACME_EMAIL}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./deployment/traefik/acme:/acme
+    networks:
+      - traefik-network
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --log.level=INFO
+      - --api.dashboard=true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+
+  # === REDIS CACHE ===
+  redis:
+    image: redis:7-alpine
+    container_name: rag-redis-${COMPOSE_PROFILES:-dev}
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory ${REDIS_MEMORY:-256mb} --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - rag-network
+
+volumes:
+  redis_data:
 
 networks:
   rag-network:
     driver: bridge
+  traefik-network:
+    external: true
