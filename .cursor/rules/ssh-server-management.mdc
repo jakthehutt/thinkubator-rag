@@ -1,0 +1,362 @@
+# SSH and Server Management Rules for Thinkubator RAG
+
+## VPS Server Management Guidelines
+
+This project deploys to a VPS using Docker, Traefik, and SSH. Follow these rules for safe and effective server management.
+
+## SSH Connection Rules
+
+### SSH Connection Standards
+
+**RULE**: Always use proper SSH connection methods and security practices.
+
+```bash
+# ✅ CORRECT: Secure SSH connection
+ssh root@217.154.75.92
+# or with custom port
+ssh root@217.154.75.92 -p 2222
+
+# ✅ Use SSH keys (preferred)
+ssh -i ~/.ssh/id_rsa root@217.154.75.92
+
+# ✅ SSH config management
+# Add to ~/.ssh/config:
+Host thinkubator-vps
+    HostName 217.154.75.92
+    User root
+    IdentityFile ~/.ssh/id_rsa
+    Port 22
+```
+
+### File Transfer Rules
+
+**RULE**: Use secure methods for transferring files and environment variables.
+
+```bash
+# ✅ CORRECT: Upload code changes
+rsync -av --progress --exclude='node_modules' --exclude='.git' \
+  --exclude='logs' --exclude='__pycache__' --exclude='.env' \
+  . root@217.154.75.92:/opt/rag-app/
+
+# ✅ CORRECT: Upload environment file securely
+scp .env root@217.154.75.92:/opt/rag-app/.env.production
+
+# ✅ CORRECT: Upload specific files
+scp docker-compose.yml root@217.154.75.92:/opt/rag-app/
+
+# ❌ NEVER: Upload sensitive files to public locations
+# ❌ NEVER: Use unencrypted transfer methods
+```
+
+## Server Directory Structure Rules
+
+### Standard Directory Layout
+
+**RULE**: Always maintain the proper server directory structure.
+
+```
+/opt/rag-app/                    # Main application directory
+├── src/                         # Source code (uploaded from local)
+├── data/                        # PDF files and processed data
+├── logs/                        # Application logs
+├── docker-compose.yml           # Docker orchestration
+├── .env.production             # Production environment variables
+├── Makefile                    # Build and deployment commands
+└── deployment/                 # Deployment configuration
+    └── traefik/
+        └── acme/               # SSL certificates (auto-generated)
+```
+
+### File Permission Rules
+
+**RULE**: Set proper permissions for security.
+
+```bash
+# ✅ CORRECT: Secure environment file
+chmod 600 /opt/rag-app/.env.production
+
+# ✅ CORRECT: Application directory ownership
+chown -R app:app /opt/rag-app/
+chmod 755 /opt/rag-app/
+
+# ✅ CORRECT: Traefik ACME permissions
+chmod 600 /opt/rag-app/deployment/traefik/acme/acme.json
+```
+
+## Docker Management on Server
+
+### Container Management Rules
+
+**RULE**: Use proper Docker commands for production container management.
+
+```bash
+# ✅ CORRECT: Production deployment
+cd /opt/rag-app
+docker compose --env-file .env.production --profile production up -d --build
+
+# ✅ CORRECT: Check container status
+docker compose ps
+docker compose logs -f          # Follow all logs
+docker compose logs backend     # Specific service logs
+
+# ✅ CORRECT: Restart services
+docker compose restart backend
+docker compose restart frontend
+
+# ✅ CORRECT: Update deployment
+docker compose down
+docker compose --env-file .env.production --profile production up -d --build
+```
+
+### Container Debugging Rules
+
+**RULE**: Use safe debugging practices that don't disrupt production.
+
+```bash
+# ✅ CORRECT: Inspect container without stopping
+docker compose exec backend bash
+docker compose exec frontend sh
+
+# ✅ CORRECT: Check resource usage
+docker stats
+docker system df
+
+# ✅ CORRECT: Inspect networks
+docker network ls
+docker network inspect traefik-network
+
+# ❌ AVOID: Stopping production containers unnecessarily
+```
+
+## Environment Configuration Rules
+
+### Production Environment Variables
+
+**RULE**: Always verify and secure production environment configuration.
+
+```bash
+# ✅ CORRECT: Production environment template
+DOMAIN=thinkubator.quasol.eu
+ACME_EMAIL=jakob.hutter@quasol.eu
+COMPOSE_PROFILES=production
+TRAEFIK_ENABLE=true
+ENVIRONMENT=production
+NEXT_PUBLIC_BACKEND_URL=https://api.thinkubator.quasol.eu
+
+# API Keys (keep from original .env)
+SUPABASE_URL=your-supabase-url
+SUPABASE_ANON_KEY=your-key
+GEMINI_API_KEY=your-key
+```
+
+### Environment Security Rules
+
+**RULE**: Protect sensitive configuration data.
+
+```bash
+# ✅ CORRECT: Secure environment file location
+/opt/rag-app/.env.production (permissions: 600)
+
+# ✅ CORRECT: View environment safely (in container)
+docker compose exec backend env | grep -v KEY | grep -v SECRET
+
+# ❌ NEVER: Store secrets in plaintext logs
+# ❌ NEVER: Commit production environment files
+# ❌ NEVER: Share API keys in chat/documentation
+```
+
+## SSL and Domain Management
+
+### Traefik and SSL Rules
+
+**RULE**: Let Traefik handle SSL automatically, monitor certificate status.
+
+```bash
+# ✅ CORRECT: Check SSL certificate status
+curl -I https://thinkubator.quasol.eu
+curl -I https://api.thinkubator.quasol.eu
+
+# ✅ CORRECT: Check Traefik dashboard
+# https://traefik.thinkubator.quasol.eu:8080 (if configured)
+
+# ✅ CORRECT: View Traefik logs for SSL issues
+docker compose logs traefik
+
+# ✅ CORRECT: Check ACME certificate files
+ls -la /opt/rag-app/deployment/traefik/acme/
+```
+
+### DNS Verification Rules
+
+**RULE**: Always verify DNS configuration before deployment.
+
+```bash
+# ✅ CORRECT: Test DNS resolution
+nslookup thinkubator.quasol.eu
+nslookup api.thinkubator.quasol.eu
+
+# ✅ CORRECT: Test from server
+dig @8.8.8.8 thinkubator.quasol.eu
+
+# Expected results:
+# thinkubator.quasol.eu → 217.154.75.92
+# api.thinkubator.quasol.eu → 217.154.75.92
+```
+
+## Backup and Recovery Rules
+
+### Data Backup Rules
+
+**RULE**: Implement regular backup procedures for critical data.
+
+```bash
+# ✅ CORRECT: Backup application code
+tar -czf /backup/rag-app-$(date +%Y%m%d).tar.gz /opt/rag-app/
+
+# ✅ CORRECT: Backup environment configuration
+cp /opt/rag-app/.env.production /backup/.env.production.$(date +%Y%m%d)
+
+# ✅ CORRECT: Database backup (Supabase handles this automatically)
+# No action needed - Supabase provides automated backups
+
+# ✅ CORRECT: Log backup/rotation
+docker system prune -f  # Clean old containers/images
+```
+
+## Monitoring and Health Checks
+
+### Health Monitoring Rules
+
+**RULE**: Regularly monitor application health and performance.
+
+```bash
+# ✅ CORRECT: Health check endpoints
+curl https://api.thinkubator.quasol.eu/health
+curl https://thinkubator.quasol.eu/
+
+# ✅ CORRECT: Resource monitoring
+htop                    # System resources
+docker stats           # Container resources
+df -h                   # Disk usage
+free -m                 # Memory usage
+
+# ✅ CORRECT: Service status
+systemctl status docker
+docker compose ps
+```
+
+### Log Management Rules
+
+**RULE**: Properly manage and review application logs.
+
+```bash
+# ✅ CORRECT: View recent logs
+docker compose logs --tail=100 backend
+docker compose logs --tail=100 frontend
+docker compose logs --tail=50 traefik
+
+# ✅ CORRECT: Search for errors
+docker compose logs | grep -i error
+docker compose logs | grep -i failed
+
+# ✅ CORRECT: Log rotation (automatic with Docker)
+# Docker handles log rotation automatically
+```
+
+## Security Rules
+
+### Server Security Rules
+
+**RULE**: Maintain security best practices for production server.
+
+```bash
+# ✅ CORRECT: Regular security updates
+apt update && apt upgrade -y
+
+# ✅ CORRECT: Firewall configuration
+ufw allow 22      # SSH
+ufw allow 80      # HTTP (redirects to HTTPS)
+ufw allow 443     # HTTPS
+ufw enable
+
+# ✅ CORRECT: Docker security
+# Run containers as non-root user (already configured)
+# Use multi-stage builds (already implemented)
+# Regular image updates
+
+# ❌ NEVER: Disable firewall
+# ❌ NEVER: Run containers as root in production
+# ❌ NEVER: Use default passwords
+```
+
+## Troubleshooting Rules
+
+### Common Issue Resolution
+
+**RULE**: Follow systematic troubleshooting approach.
+
+```bash
+# 1. Check container status
+docker compose ps
+
+# 2. Check logs for errors
+docker compose logs --tail=100
+
+# 3. Check resource usage
+docker stats
+df -h
+
+# 4. Test connectivity
+curl -I https://thinkubator.quasol.eu
+curl -I https://api.thinkubator.quasol.eu/health
+
+# 5. Restart if needed
+docker compose restart [service]
+# or full restart:
+docker compose down && docker compose --env-file .env.production --profile production up -d
+```
+
+### Emergency Recovery Rules
+
+**RULE**: Know emergency recovery procedures.
+
+```bash
+# ✅ EMERGENCY: Stop all services
+docker compose down
+
+# ✅ EMERGENCY: Clean restart
+docker compose down
+docker system prune -f
+docker compose --env-file .env.production --profile production up -d --build
+
+# ✅ EMERGENCY: Restore from backup
+cd /backup
+tar -xzf rag-app-YYYYMMDD.tar.gz -C /
+cd /opt/rag-app
+docker compose --env-file .env.production --profile production up -d --build
+```
+
+## Development vs Production Rules
+
+### Environment Separation Rules
+
+**RULE**: Keep development and production clearly separated.
+
+```bash
+# ✅ LOCAL DEVELOPMENT: Use development profile
+make dev
+docker compose up  # Development mode
+
+# ✅ PRODUCTION SERVER: Use production profile
+docker compose --env-file .env.production --profile production up -d
+
+# ✅ CORRECT: Different environment files
+.env                    # Local development (not committed)
+.env.production        # Production server (secure, server-only)
+
+# ❌ NEVER: Mix development and production configurations
+```
+
+---
+
+**Remember**: Server management requires careful attention to security, monitoring, and systematic procedures. Always test changes in development first, maintain backups, and follow security best practices.
